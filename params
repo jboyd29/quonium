@@ -1,0 +1,38 @@
+# params
+# Parameter file
+
+# Box side length [GeV-1]
+L 10
+
+# Simulation time step
+dt 0.01
+
+# Temperature [GeV]
+T 0.3
+
+### Initial occupations
+
+# Initial number of bound states
+NY 10
+
+# Initial number of bb parirs
+Nbb 100
+
+# Particle Masses
+bMass 1
+
+YMass 2
+
+# Particle Cross-sections
+bsig 0.01
+Ysig 0.02
+
+#Channel
+
+Ch 0
+
+#Rate file
+
+rateFile bottom_rates_2d.tsv
+
+boop gleep
