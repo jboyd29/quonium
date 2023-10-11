@@ -3,6 +3,7 @@
 
 import numpy as np
 import csv
+from scipy.integrate import quad
 from scipy.interpolate import CubicSpline
 
 
@@ -44,4 +45,66 @@ class probBlock:
             print(r-runtot)
             if r < runtot:
                 return pB(r-runtot)+[self.tag]   
+
+
+# Overlaps
+
+def OvLp(conf, q , state):
+    pr = np.sqrt(M*(q-conf['E'+state]))
+    eta = conf['alphaS']*conf['M'+state]/(4*conf['NC']*pr)
+    aB = 2/(conf['alphaS']*conf['CF']*conf['M'+state])
+    if state == '1S':
+        return ( ((2**9)(np.pi**2)(eta)(np.power(aB,7))(np.power(pr,2))(1+np.power(eta,2))np.power(2+eta*aB*pr))  /  ((np.power(1+(aB**2)np.power(pr,2),6))(np.exp(2*np.pi*eta)-1)) ) * np.exp(4*eta*np.arctan(2*aB*pr))
+
+    elif state == '2S':
+        return 0
+
+
+
+# Dissociation Rates
+
+# Real Gluon Absorption
+
+def RGAint(q, conf, state):  # state = '1S', '2S' ... this is just the integrand
+    return np.power(q, 3) * np.sqrt(conf['M'+state]*(q-conf['E'+state])) * (1/(np.exp(q/conf['T'])-1)) * (OvLp(conf, q, state))
+
+def getRGArate(conf, state): # this numerically integrates the RGA integrand from Enl to 50*Enl and multiplies by the prefactor
+    res, error = quad(RGAint, conf['E'+state], conf['E'+state]*50, args=(conf, state))
+    return res *((conf['alphaS']*conf['M'+state])/(9*(np.pi**2)))
+
+
+# Regeneration Rates
+
+
+
+
+# RateMan
+# container that will calculate all the rates and interpolations where necessary to get passed around
+class rateMan:
+    def __init__(self,conf):
+        self.conf = conf
+        statelist = ['1S']   # add others here
+        self.rates={}
+        
+        # Generate Real Gluon Absorption rates
+        self.rates['RGA'] = {}
+        for state in statelist:
+            self.rates['RGA'][state] = getRGArate(self.conf, state) # these are just numbers
+    def __getitem__(self, channel):
+        return self.rates[channel]
+
+# SampMan
+# similar container that will contain all the sampling distrbutions
+class sampMan:
+    def __init__(self, conf):
+        self.conf = conf
+        statelist = ['1S']
+        self.rates = {}
+
+        # Generate Real Gluon absorption sampling distributions
+        self.
+
+
+
+
 
