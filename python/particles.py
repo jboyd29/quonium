@@ -4,6 +4,10 @@
 import numpy as np
 from rates import dissociation
 
+from interpolations import rateMan
+from interpolations import sampMan
+from interpolations import probBlock
+
 def flip(n):
     if n == 0:
         return 1
@@ -42,13 +46,14 @@ class quark:
         #return self
 
 class bound:
-    def __init__(self, conf, quarks=None):
+    def __init__(self, conf, quarks=None, state='1S'):
         self.conf = conf
+        self.state = state
         if quarks==None:  # Initial(=None) or recombined
             # Initial positions are sampled randomly throughout the box
             self.pos = np.random.uniform(3)*conf['L']
             # Inital momentums are sampled from a Boltzmann distribution
-            self.mom = np.random.normal(loc=0, scale=np.sqrt(conf['T']/conf['YMass']),size=3)
+            self.mom = np.random.normal(loc=0, scale=np.sqrt(conf['T']/conf['M'+self.state]),size=3)
             # Initialize constituent quarks
             self.quarks = [quark(conf),quark(conf,anti=1)]
         else:
@@ -56,10 +61,10 @@ class bound:
             self.pos = (quarks[0].pos+quarks[1].pos)/2 #Position set to center of mass
             self.mom = quarks[0].mom+quarks[1].mom #Momentum set to sum of momenta ##########!!!!!!!!!!!!!
     def Xstep(self):
-        self.pos = (self.pos + (self.mom/np.sqrt((self.conf['YMass']**2)+np.dot(self.mom,self.mom)))*self.conf['dt'])%self.conf['L']
+        self.pos = (self.pos + (self.mom/np.sqrt((self.conf['M'+self.state]**2)+np.dot(self.mom,self.mom)))*self.conf['dt'])%self.conf['L']
     def Pstep(self):
         #Check collision
-        if np.random.uniform() < np.sqrt(np.dot(self.mom,self.mom))*self.conf['bsig']/self.conf['YMass']:
+        if np.random.uniform() < np.sqrt(np.dot(self.mom,self.mom))*self.conf['bsig']/self.conf['M'+self.state]:
             #Collision -> update momentum
             self.mom = self.mom + np.random.normal(loc=0, scale=np.sqrt(self.conf['T']/self.conf['bMass']),size=3)/2
     def exchangeStep(self): #CURRENTLY UNUSED
@@ -84,6 +89,9 @@ class particleList:
         self.bounds = [bound(conf) for i in range(conf['NY'])]
         self.rec = []
         self.rates = dissociation(conf)
+
+        self.rates = rateMan(conf)
+        self.dists = sampMan(conf)
         
     def getQuarkX(self):
         return [qrk.pos for qrk in self.quarks]
@@ -153,10 +161,13 @@ class particleList:
                 n+=1
         n = 0
         for bnd in self.bounds:
-            if self.rates.sampleDiss():
-                self.dissociateBound(n)
-            else:
-                n+=1
+            channelProbs = []
+            # RGA channel
+            for state in self.conf['StateList']
+                channelProbs.append(probBlock(self.rates['RGA'][state]*self.conf['dt']))
+            
+                
+            
         self.time += self.conf['dt']
     def getOccupations(self):
         return [len(self.bounds),len(self.quarks)]

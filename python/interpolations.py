@@ -44,7 +44,8 @@ class probBlock:
             runtot+=pB.size
             print(r-runtot)
             if r < runtot:
-                return pB(r-runtot)+[self.tag]   
+                return pB(r-runtot)+[self.tag]
+        return None
 
 
 # Overlaps
@@ -68,9 +69,15 @@ def OvLp(conf, q , state):
 def RGAint(q, conf, state):  # state = '1S', '2S' ... this is just the integrand
     return np.power(q, 3) * np.sqrt(conf['M'+state]*(q-conf['E'+state])) * (1/(np.exp(q/conf['T'])-1)) * (OvLp(conf, q, state))
 
-def getRGArate(conf, state): # this numerically integrates the RGA integrand from Enl to 50*Enl and multiplies by the prefactor
+def getRGArate(conf, state): # this numerically integrates the RGA integrand from Enl to ['ECut']*Enl and multiplies by the prefactor
     res, error = quad(RGAint, conf['E'+state], conf['E'+state]*50, args=(conf, state))
     return res *((conf['alphaS']*conf['M'+state])/(9*(np.pi**2)))
+
+def getRGAdist(conf, state): # this will evaluate the sampling distribution function in the range Enl - ['ECut']*Enl and returns an interpolation (and adding the point I(q=Enl)=0)
+    xVals = np.linspace(conf['E'+state], conf['ECut']*conf['E'+state],conf['NPts'])
+    woZero = xVals[2:]
+    sampledPts = np.concatenate(([0],RGAint(woZero, conf, state)))
+    return CubicSpline(xVals,sampledPts)
 
 
 # Regeneration Rates
@@ -83,7 +90,7 @@ def getRGArate(conf, state): # this numerically integrates the RGA integrand fro
 class rateMan:
     def __init__(self,conf):
         self.conf = conf
-        statelist = ['1S']   # add others here
+        statelist = self.conf['StateList']   # add others here
         self.rates={}
         
         # Generate Real Gluon Absorption rates
@@ -98,13 +105,15 @@ class rateMan:
 class sampMan:
     def __init__(self, conf):
         self.conf = conf
-        statelist = ['1S']
-        self.rates = {}
+        statelist = self.conf['StateList']
+        self.dists = {}
 
         # Generate Real Gluon absorption sampling distributions
-        self.
-
-
+        self.dists['RGA'] = {}
+        for state in statelist:
+            self.dists['RGA'][state] = getRGAdist(self.conf, state)
+    def __getitem__(self, channel) 
+        return self.dists[channel]
 
 
 

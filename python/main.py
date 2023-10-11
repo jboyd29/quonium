@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 
 
 conf = config()
+conf['StateList'] = ['1S']
 conf.echoParams()
 
 

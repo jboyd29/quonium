@@ -21,7 +21,17 @@ Nbb 100
 # Particle Masses
 bMass 1
 
-YMass 2
+# Bound state masses
+
+M1S 2
+
+M2S 3
+
+# Binding energies
+
+E1S 1
+
+E2S 1
 
 # Particle Cross-sections
 bsig 0.01
@@ -34,5 +44,18 @@ Ch 0
 #Rate file
 
 rateFile bottom_rates_2d.tsv
+
+
+#Other Parameters
+
+alphaS 0.3
+
+CF 1.33333333333333333333
+
+NC 3
+
+# Energy cutoff for interpolations and sampling (as a number*Enl)
+ECut 20
+
 
 boop gleep
