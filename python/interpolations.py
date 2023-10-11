@@ -5,6 +5,7 @@ import numpy as np
 import csv
 from scipy.integrate import quad
 from scipy.interpolate import CubicSpline
+from scipy.optimize import fmin
 
 
 
@@ -73,11 +74,14 @@ def getRGArate(conf, state): # this numerically integrates the RGA integrand fro
     res, error = quad(RGAint, conf['E'+state], conf['E'+state]*50, args=(conf, state))
     return res *((conf['alphaS']*conf['M'+state])/(9*(np.pi**2)))
 
-def getRGAdist(conf, state): # this will evaluate the sampling distribution function in the range Enl - ['ECut']*Enl and returns an interpolation (and adding the point I(q=Enl)=0)
+def getRGAdist(conf, state): # this will evaluate the sampling distribution function in the range Enl - ['ECut']*Enl and returns an interpolation (and adding the point I(q=Enl)=0) and normal
     xVals = np.linspace(conf['E'+state], conf['ECut']*conf['E'+state],conf['NPts'])
     woZero = xVals[2:]
     sampledPts = np.concatenate(([0],RGAint(woZero, conf, state)))
-    return CubicSpline(xVals,sampledPts)
+    interp = CubicSpline(xVals,sampledPts) 
+    #normalized this for sampling s.t. max(I) = 1
+    Imax = -fmin(lambda q: -interp(q), args = (conf, state),2*conf['E'+state]) 
+    return CubicSpline(xVals,sampledPts/Imax) ### Check on this !!! 
 
 
 # Regeneration Rates

@@ -72,13 +72,13 @@ class bound:
         if np.random.uniform() < 0.005:
             return True
         return False
-    def dissociate(self): # When this function is called it  returns the constituent quarks as [quark, anti]
+    def dissociate(self, prel, q): # When this function is called it  returns the constituent quarks as [quark, anti]
         #Set constituent quark positions to the position of siddociated bound
         for qrk in self.quarks:
             qrk.pos = self.pos 
         ##############!!!!!!!!!!!!!!! Here is where you would set the momentum but they are just thermally randomized as of now
-        for qrk in self.quarks:
-            qrk.mom = np.random.normal(loc=0, scale=np.sqrt(self.conf['T']/self.conf['bMass']),size=3)
+        self.quarks[0].mom = prel + q/2
+        self.quarks[1].mom = -prel + q/2
         return self.quarks
         
 class particleList:
@@ -163,8 +163,43 @@ class particleList:
         for bnd in self.bounds:
             channelProbs = []
             # RGA channel
-            for state in self.conf['StateList']
-                channelProbs.append(probBlock(self.rates['RGA'][state]*self.conf['dt']))
+            RGApBs = probBlock([probBlock(self.rates['RGA'][state]*self.conf['dt']),state) for state in self.conf['StateList']],'RGA')
+            
+            # X channel
+
+            # Y channel
+
+
+            channelProbs.append(RGApBs)
+            
+
+            #Collect all the probabilities together
+            pB = probBlock(channelProbs)
+            result = pB(np.random.uniform())
+                if result == None:
+                    n+=1
+                    continue
+                else:
+                    # Now read what channel so we can sample appropriately
+                    if result[0] == 'RGA':
+                        resamp = True
+                        while resamp:
+                            qtry = self.dists['RGA']['1S'] # !!!!!!
+                            if np.random.uniform() < qtry:
+                                resamp = False
+                        pmag = (qtry - conf['E1S'])/conf['M1S']
+                        CosThet = (np.random.uniform()*2)-1
+                        SinThet = np.sqrt(1-(CosThet)**2)
+                        Phi = np.random.uniform()*2*np.pi
+                        
+                        qCosThet = (np.random.uniform()*2)-
+                        qSinThet = np.sqrt(1-(CosThet)**2)
+                        qPhi = np.random.uniform()*2*np.pi
+
+
+                        pr = np.array([pmag*SinThet*np.cos(Phi),pmag*SinThet*np.sin(Phi),pmag*CosThet])
+                        pq = np.array([qtry*qSinThet*np.cos(qPhi),qtry*qSinThet*np.sin(qPhi),qtry*qCosThet]) 
+                        bnd.dissociate(pr,pq)
             
                 
             
