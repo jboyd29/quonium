@@ -15,7 +15,7 @@ def parse_string(input_string):
     return result
 
 class config:
-    def __init__(self, filename="params"):
+    def __init__(self, filename="../params"):
         self.data = {}
         self.filename = filename
         self.grabParams()

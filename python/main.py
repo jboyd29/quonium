@@ -35,6 +35,7 @@ for boxi in boxes:
     for i in range(2000):
         boxi.step()
         boxi.recLine()
+        print('t:',boxi.time,'   B:', j)
     print('Box',j,'complete')
     j+=1
 

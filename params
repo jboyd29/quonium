@@ -57,5 +57,7 @@ NC 3
 # Energy cutoff for interpolations and sampling (as a number*Enl)
 ECut 20
 
+# Number of sampled points for interpolations and sampling
+NPts 100
 
 boop gleep

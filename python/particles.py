@@ -2,7 +2,6 @@
 #
 
 import numpy as np
-from rates import dissociation
 
 from interpolations import rateMan
 from interpolations import sampMan
@@ -49,6 +48,8 @@ class bound:
     def __init__(self, conf, quarks=None, state='1S'):
         self.conf = conf
         self.state = state
+        if self.state == None:
+            print('No state')
         if quarks==None:  # Initial(=None) or recombined
             # Initial positions are sampled randomly throughout the box
             self.pos = np.random.uniform(3)*conf['L']
@@ -88,7 +89,6 @@ class particleList:
         self.quarks = [quark(conf,anti=n) for i in range(conf['Nbb']) for n in [0,1]]
         self.bounds = [bound(conf) for i in range(conf['NY'])]
         self.rec = []
-        self.rates = dissociation(conf)
 
         self.rates = rateMan(conf)
         self.dists = sampMan(conf)
@@ -163,7 +163,7 @@ class particleList:
         for bnd in self.bounds:
             channelProbs = []
             # RGA channel
-            RGApBs = probBlock([probBlock(self.rates['RGA'][state]*self.conf['dt']),state) for state in self.conf['StateList']],'RGA')
+            RGApBs = probBlock([probBlock(self.rates['RGA'][state]*self.conf['dt'],state) for state in self.conf['StateList']],'RGA')
             
             # X channel
 
@@ -174,35 +174,33 @@ class particleList:
             
 
             #Collect all the probabilities together
-            pB = probBlock(channelProbs)
+            pB = probBlock(channelProbs,'')
             result = pB(np.random.uniform())
-                if result == None:
-                    n+=1
-                    continue
-                else:
-                    # Now read what channel so we can sample appropriately
-                    if result[0] == 'RGA':
-                        resamp = True
-                        while resamp:
-                            qtry = self.dists['RGA']['1S'] # !!!!!!
-                            if np.random.uniform() < qtry:
-                                resamp = False
-                        pmag = (qtry - conf['E1S'])/conf['M1S']
-                        CosThet = (np.random.uniform()*2)-1
-                        SinThet = np.sqrt(1-(CosThet)**2)
-                        Phi = np.random.uniform()*2*np.pi
+            if result == None:
+                n+=1
+                continue
+            else:
+                # Now read what channel so we can sample appropriately
+                if result[1] == 'RGA':
+                    resamp = True
+                    while resamp:
+                        qtry = np.random.uniform(self.conf['E'+result[0]],self.conf['E'+result[0]]*self.conf['NPts']) # !!!!!!
+                        if np.random.uniform() < self.dists['RGA'][result[0]](qtry):
+                            resamp = False
+                    pmag = (qtry - self.conf['E'+result[0]])/self.conf['M'+result[0]]
+                    CosThet = (np.random.uniform()*2)-1
+                    SinThet = np.sqrt(1-(CosThet)**2)
+                    Phi = np.random.uniform()*2*np.pi
                         
-                        qCosThet = (np.random.uniform()*2)-
-                        qSinThet = np.sqrt(1-(CosThet)**2)
-                        qPhi = np.random.uniform()*2*np.pi
+                    qCosThet = (np.random.uniform()*2)-1
+                    qSinThet = np.sqrt(1-(CosThet)**2)
+                    qPhi = np.random.uniform()*2*np.pi
 
 
-                        pr = np.array([pmag*SinThet*np.cos(Phi),pmag*SinThet*np.sin(Phi),pmag*CosThet])
-                        pq = np.array([qtry*qSinThet*np.cos(qPhi),qtry*qSinThet*np.sin(qPhi),qtry*qCosThet]) 
-                        bnd.dissociate(pr,pq)
-            
-                
-            
+                    pr = np.array([pmag*SinThet*np.cos(Phi),pmag*SinThet*np.sin(Phi),pmag*CosThet])
+                    pq = np.array([qtry*qSinThet*np.cos(qPhi),qtry*qSinThet*np.sin(qPhi),qtry*qCosThet]) 
+                    bnd.dissociate(pr,pq)
+
         self.time += self.conf['dt']
     def getOccupations(self):
         return [len(self.bounds),len(self.quarks)]

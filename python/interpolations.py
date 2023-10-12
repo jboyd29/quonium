@@ -43,7 +43,7 @@ class probBlock:
         runtot=0
         for pB in self.content:
             runtot+=pB.size
-            print(r-runtot)
+            #print(r-runtot)
             if r < runtot:
                 return pB(r-runtot)+[self.tag]
         return None
@@ -52,11 +52,11 @@ class probBlock:
 # Overlaps
 
 def OvLp(conf, q , state):
-    pr = np.sqrt(M*(q-conf['E'+state]))
+    pr = np.sqrt(conf['M'+state]*(q-conf['E'+state]))
     eta = conf['alphaS']*conf['M'+state]/(4*conf['NC']*pr)
-    aB = 2/(conf['alphaS']*conf['CF']*conf['M'+state])
+    aB = 2/(conf['alphaS']*conf['CF']*conf['M'+state]) 
     if state == '1S':
-        return ( ((2**9)(np.pi**2)(eta)(np.power(aB,7))(np.power(pr,2))(1+np.power(eta,2))np.power(2+eta*aB*pr))  /  ((np.power(1+(aB**2)np.power(pr,2),6))(np.exp(2*np.pi*eta)-1)) ) * np.exp(4*eta*np.arctan(2*aB*pr))
+        return ( ((2**9)*(np.pi**2)*(eta)*(np.power(aB,7))*(np.power(pr,2))*(1+np.power(eta,2))*np.power(2+eta*aB*pr,2))  /  ((np.power(1+(aB**2)*np.power(pr,2),6))*(np.exp(2*np.pi*eta)-1)) ) * np.exp(4*eta*np.arctan(2*aB*pr))
 
     elif state == '2S':
         return 0
@@ -72,15 +72,16 @@ def RGAint(q, conf, state):  # state = '1S', '2S' ... this is just the integrand
 
 def getRGArate(conf, state): # this numerically integrates the RGA integrand from Enl to ['ECut']*Enl and multiplies by the prefactor
     res, error = quad(RGAint, conf['E'+state], conf['E'+state]*50, args=(conf, state))
+    print(type(res))
     return res *((conf['alphaS']*conf['M'+state])/(9*(np.pi**2)))
 
 def getRGAdist(conf, state): # this will evaluate the sampling distribution function in the range Enl - ['ECut']*Enl and returns an interpolation (and adding the point I(q=Enl)=0) and normal
     xVals = np.linspace(conf['E'+state], conf['ECut']*conf['E'+state],conf['NPts'])
-    woZero = xVals[2:]
+    woZero = xVals[1:]
     sampledPts = np.concatenate(([0],RGAint(woZero, conf, state)))
-    interp = CubicSpline(xVals,sampledPts) 
+    interp = CubicSpline(xVals,-sampledPts) 
     #normalized this for sampling s.t. max(I) = 1
-    Imax = -fmin(lambda q: -interp(q), args = (conf, state),2*conf['E'+state]) 
+    Imax = -fmin(interp, np.array(2*conf['E'+state]))
     return CubicSpline(xVals,sampledPts/Imax) ### Check on this !!! 
 
 
@@ -116,7 +117,7 @@ class sampMan:
         self.dists['RGA'] = {}
         for state in statelist:
             self.dists['RGA'][state] = getRGAdist(self.conf, state)
-    def __getitem__(self, channel) 
+    def __getitem__(self, channel): 
         return self.dists[channel]
 
 
