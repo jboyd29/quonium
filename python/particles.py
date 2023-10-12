@@ -34,7 +34,7 @@ class quark:
         #Here is where we would iterate over all partners to determine recombination
         
         #For now it will just make a random choice with a small probability !!!!!!!!!
-        if np.random.uniform() < 0.001:
+        if np.random.uniform() < 0.00001:
             return np.random.randint(len(partner_Xs))-1
         return None
  
@@ -74,7 +74,7 @@ class bound:
             return True
         return False
     def dissociate(self, prel, q): # When this function is called it  returns the constituent quarks as [quark, anti]
-        #Set constituent quark positions to the position of siddociated bound
+        #Set constituent quark positions to the position of dissociated bound
         for qrk in self.quarks:
             qrk.pos = self.pos 
         ##############!!!!!!!!!!!!!!! Here is where you would set the momentum but they are just thermally randomized as of now
@@ -121,13 +121,13 @@ class particleList:
             if self.quarks[i].anti==1:
                 res.append(i)
         return res
-    def dissociateBound(self, ind):
-        qrks = self.bounds[ind].dissociate()
+    def dissociateBound(self, ind, pr, pq):
+        qrks = self.bounds[ind].dissociate(pr, pq)
         del self.bounds[ind]
         for qrk in qrks:
             self.quarks.append(qrk)
-    def combineQuarks(self, inds): # inds -> [ind0,ind1]
-        bnd = bound(self.conf, quarks=[self.quarks[inds[0]],self.quarks[inds[1]]])
+    def combineQuarks(self, inds, state): # inds -> [ind0,ind1]
+        bnd = bound(self.conf, quarks=[self.quarks[inds[0]],self.quarks[inds[1]]], state=state)
         for ind in sorted(inds, reverse=True):
             del self.quarks[ind]
         self.bounds.append(bnd)
@@ -139,29 +139,44 @@ class particleList:
         for bnd in self.bounds:
             bnd.Xstep()
         # P-step
-        for qrk in self.quarks:
-            qrk.Pstep()
-        for bnd in self.bounds:
-            bnd.Pstep()
+        #for qrk in self.quarks:
+        #    qrk.Pstep()
+        #for bnd in self.bounds:
+        #    bnd.Pstep()
         # Exchange-step
         QStates = [[self.get0QuarkX(),self.get0QuarkP()],[self.get1QuarkX(),self.get1QuarkP()]]
         QInds = [self.get0QuarkInd(),self.get1QuarkInd()]
         n = 0
         while n < len(self.quarks):
-            choice = self.quarks[n].exchangeStep(QStates[flip(self.quarks[n].anti)])
+            options = QStates[flip(self.quarks[n].anti)]
+
+            # RGR channel
+            RGRpBs = probBlock([probBlock([probBlock(self.rates['RGR'][state]( np.linalg.norm(self.quarks[n].pos-self.quarks[op].pos) ,np.linalg.norm(self.quarks[n].mom-self.quarks[op].mom)),op) for op in options],state) for state in self.conf['StateList']],'RGR')
+
+            # X channel
+
+            # Y channel
+
+
+            pB = probBlock([RGRpBs])
+            result = pB(np.random.uniform())
+
+            choice = result[-1]
             if choice != None:
                 if QInds[flip(self.quarks[n].anti)][choice] == n:
                     n+=1
                     continue
+                
+                self.combineQuarks([n,QInds[flip(self.quarks[n].anti)][choice]])
+
                 QStates = [[self.get0QuarkX(),self.get0QuarkP()],[self.get1QuarkX(),self.get1QuarkP()]]
                 QInds = [self.get0QuarkInd(),self.get1QuarkInd()]
                 
-                self.combineQuarks([n,QInds[flip(self.quarks[n].anti)][choice]])
+                
             else:
                 n+=1
         n = 0
         for bnd in self.bounds:
-            channelProbs = []
             # RGA channel
             RGApBs = probBlock([probBlock(self.rates['RGA'][state]*self.conf['dt'],state) for state in self.conf['StateList']],'RGA')
             
@@ -170,7 +185,7 @@ class particleList:
             # Y channel
 
 
-            channelProbs.append(RGApBs)
+            channelProbs = [RGApBs]
             
 
             #Collect all the probabilities together
@@ -198,8 +213,9 @@ class particleList:
 
 
                     pr = np.array([pmag*SinThet*np.cos(Phi),pmag*SinThet*np.sin(Phi),pmag*CosThet])
-                    pq = np.array([qtry*qSinThet*np.cos(qPhi),qtry*qSinThet*np.sin(qPhi),qtry*qCosThet]) 
-                    bnd.dissociate(pr,pq)
+                    pq = np.array([qtry*qSinThet*np.cos(qPhi),qtry*qSinThet*np.sin(qPhi),qtry*qCosThet])
+                    self.dissociateBound(n,pr,pq)
+
 
         self.time += self.conf['dt']
     def getOccupations(self):

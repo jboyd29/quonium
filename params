@@ -29,7 +29,7 @@ M2S 3
 
 # Binding energies
 
-E1S 1
+E1S 0.13
 
 E2S 1
 
@@ -57,7 +57,10 @@ NC 3
 # Energy cutoff for interpolations and sampling (as a number*Enl)
 ECut 20
 
+# Relative momentum cutoff for interpotaions and sampling (!!! No idea what this should be, function seems boring after this tho)
+prCut 2
+
 # Number of sampled points for interpolations and sampling
-NPts 100
+NPts 5
 
 boop gleep

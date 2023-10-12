@@ -81,12 +81,25 @@ def getRGAdist(conf, state): # this will evaluate the sampling distribution func
     sampledPts = np.concatenate(([0],RGAint(woZero, conf, state)))
     interp = CubicSpline(xVals,-sampledPts) 
     #normalized this for sampling s.t. max(I) = 1
-    Imax = -fmin(interp, np.array(2*conf['E'+state]))
+    Imax = -fmin(interp, np.array(2*conf['E'+state]), full_output=0)
     return CubicSpline(xVals,sampledPts/Imax) ### Check on this !!! 
 
 
 # Regeneration Rates
 
+# Real Gluon Radiation
+
+def RGRsum(x, pr, conf, state): # x-relative spearation pr-relaltive momentum
+    aB = 2/(conf['alphaS']*conf['CF']*conf['M'+state]) 
+    return ( np.exp(-(x**2)/(2*(aB**2))) / ((2*np.pi*(aB**2))**(3/2)) ) * (8/9)*(conf['alphaS'])*np.power(conf['E'+state]+((pr**2)/conf['M'+state]),3)*OvLp(conf,conf['E'+state]+((pr**2)/conf['M'+state]), state)
+
+def getRGRrate(conf, state):
+    prVals = np.linspace(0,conf['prCut'],conf['NPts'])
+    woZero = prVals[1:]
+    xVals = np.linspace(0,conf['L'],conf['NPts'])
+    result = RGRsum(xVals[:,None],woZero[None,:],conf,state)
+    print(type(result))
+    exit()
 
 
 
@@ -98,10 +111,23 @@ class rateMan:
         statelist = self.conf['StateList']   # add others here
         self.rates={}
         
+        #Dissociation
+
         # Generate Real Gluon Absorption rates
         self.rates['RGA'] = {}
         for state in statelist:
             self.rates['RGA'][state] = getRGArate(self.conf, state) # these are just numbers
+        
+        #Regeneration
+
+        #Generate Real Gloun Radiation rates
+        self.rates['RGR'] = {}
+        for state in statelist:
+            self.rates['RGR'][state] = getRGRrate(self.conf, state) # these are 2d interpolating functions that take x and pr as args
+
+
+
+
     def __getitem__(self, channel):
         return self.rates[channel]
 

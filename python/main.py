@@ -32,10 +32,11 @@ boxes = [particleList(conf) for i in range(10)]
 j=0
 for boxi in boxes:
     
-    for i in range(2000):
+    for i in range(10000):
         boxi.step()
         boxi.recLine()
-        print('t:',boxi.time,'   B:', j)
+        if boxi.time % 1 <0.01:
+            print('t:',boxi.time,'   B:', j)
     print('Box',j,'complete')
     j+=1
 
@@ -52,6 +53,6 @@ Y = [line[1] for line in tr]
 plt.plot(X,Y)
 plt.xlabel('t')
 plt.ylabel('Nb_bound/Nb_total  [AVG]')
-plt.title('Scatter Plot of (X, Y) Pairs')
+plt.title('Hidden bottom fraction')
 plt.show()  
 
