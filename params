@@ -8,22 +8,26 @@ L 10
 dt 0.01
 
 # Temperature [GeV]
-T 0.3
+T 0.2
+
+# Total number of simulation steps
+tFn 100
 
 ### Initial occupations
 
 # Initial number of bound states
-NY 10
+NY 1
 
 # Initial number of bb parirs
 Nbb 100
 
-# Particle Masses
-bMass 1
+### Particle Masses
+
+Mb 4.65
 
 # Bound state masses
 
-M1S 2
+M1S 9.460
 
 M2S 3
 
@@ -58,9 +62,12 @@ NC 3
 ECut 20
 
 # Relative momentum cutoff for interpotaions and sampling (!!! No idea what this should be, function seems boring after this tho)
-prCut 2
+prCut 150
 
 # Number of sampled points for interpolations and sampling
-NPts 5
+NPts 500
+
+# Export points sampled for rate interpolations
+ExportRates True
 
 boop gleep

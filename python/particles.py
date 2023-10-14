@@ -20,14 +20,11 @@ class quark:
         # Initial positions are sampled randomly throughout the box
         self.pos = np.random.uniform(3)*conf['L']
         # Inital momentums are sampled from a Boltzmann distribution
-        self.mom = np.random.normal(loc=0, scale=np.sqrt(conf['T']/conf['bMass']),size=3)
+        self.mom = np.random.normal(loc=0, scale=np.sqrt(conf['T']/conf['Mb']),size=3)
     def Xstep(self):
-        self.pos = (self.pos + (self.mom/np.sqrt((self.conf['bMass']**2)+np.dot(self.mom,self.mom)))*self.conf['dt'])%self.conf['L']
+        self.pos = (self.pos + (self.mom/np.sqrt((self.conf['Mb']**2)+np.dot(self.mom,self.mom)))*self.conf['dt'])%self.conf['L']
     def Pstep(self):
-        #Check collision
-        if np.random.uniform() < np.sqrt(np.dot(self.mom,self.mom))*self.conf['bsig']/self.conf['bMass']:
-            #Collision -> update momentum
-            self.mom = self.mom + np.random.normal(loc=0, scale=np.sqrt(self.conf['T']/self.conf['bMass']),size=3)/2
+        self.mom = self.mom*(1-0.001) #Drag
     def exchangeStep(self, partners): # partners = [partner_Xs, partner_Ps]
         partner_Xs = partners[0]
         partner_Ps = partners[1]        
@@ -54,7 +51,7 @@ class bound:
             # Initial positions are sampled randomly throughout the box
             self.pos = np.random.uniform(3)*conf['L']
             # Inital momentums are sampled from a Boltzmann distribution
-            self.mom = np.random.normal(loc=0, scale=np.sqrt(conf['T']/conf['M'+self.state]),size=3)
+            self.mom = np.random.normal(loc=0, scale=np.sqrt(conf['T']/conf['M'+self.state]),size=3)/100
             # Initialize constituent quarks
             self.quarks = [quark(conf),quark(conf,anti=1)]
         else:
@@ -64,10 +61,7 @@ class bound:
     def Xstep(self):
         self.pos = (self.pos + (self.mom/np.sqrt((self.conf['M'+self.state]**2)+np.dot(self.mom,self.mom)))*self.conf['dt'])%self.conf['L']
     def Pstep(self):
-        #Check collision
-        if np.random.uniform() < np.sqrt(np.dot(self.mom,self.mom))*self.conf['bsig']/self.conf['M'+self.state]:
-            #Collision -> update momentum
-            self.mom = self.mom + np.random.normal(loc=0, scale=np.sqrt(self.conf['T']/self.conf['bMass']),size=3)/2
+        self.mom = self.mom*(1-0.01) #tiny drag
     def exchangeStep(self): #CURRENTLY UNUSED
         # Here it would take the dissocation rate but for now ot will be random
         if np.random.uniform() < 0.005:
@@ -83,15 +77,15 @@ class bound:
         return self.quarks
         
 class particleList:
-    def __init__(self, conf):
+    def __init__(self, conf, rates, dists):
         self.conf = conf
         self.time = 0.0
         self.quarks = [quark(conf,anti=n) for i in range(conf['Nbb']) for n in [0,1]]
         self.bounds = [bound(conf) for i in range(conf['NY'])]
         self.rec = []
 
-        self.rates = rateMan(conf)
-        self.dists = sampMan(conf)
+        self.rates = rates
+        self.dists = dists
         
     def getQuarkX(self):
         return [qrk.pos for qrk in self.quarks]
@@ -126,7 +120,7 @@ class particleList:
         del self.bounds[ind]
         for qrk in qrks:
             self.quarks.append(qrk)
-    def combineQuarks(self, inds, state): # inds -> [ind0,ind1]
+    def combineQuarks(self, inds, state, p): # inds -> [ind0,ind1]
         bnd = bound(self.conf, quarks=[self.quarks[inds[0]],self.quarks[inds[1]]], state=state)
         for ind in sorted(inds, reverse=True):
             del self.quarks[ind]
@@ -139,44 +133,63 @@ class particleList:
         for bnd in self.bounds:
             bnd.Xstep()
         # P-step
-        #for qrk in self.quarks:
-        #    qrk.Pstep()
-        #for bnd in self.bounds:
-        #    bnd.Pstep()
+        for qrk in self.quarks:
+            qrk.Pstep()
+        for bnd in self.bounds:
+            bnd.Pstep()
+        
         # Exchange-step
-        QStates = [[self.get0QuarkX(),self.get0QuarkP()],[self.get1QuarkX(),self.get1QuarkP()]]
+
+        #Regeneration
+        
+        #QStates = [[self.get0QuarkX(),self.get0QuarkP()],[self.get1QuarkX(),self.get1QuarkP()]]
         QInds = [self.get0QuarkInd(),self.get1QuarkInd()]
         n = 0
-        while n < len(self.quarks):
-            options = QStates[flip(self.quarks[n].anti)]
+        while n < len(self.quarks): #iterate over all unbound quarks
+            options = QInds[flip(self.quarks[n].anti)]
 
             # RGR channel
-            RGRpBs = probBlock([probBlock([probBlock(self.rates['RGR'][state]( np.linalg.norm(self.quarks[n].pos-self.quarks[op].pos) ,np.linalg.norm(self.quarks[n].mom-self.quarks[op].mom)),op) for op in options],state) for state in self.conf['StateList']],'RGR')
+            RGRpBs = probBlock([probBlock([probBlock(float(self.rates['RGR'][state](( np.linalg.norm(self.quarks[n].pos-self.quarks[op].pos) ,np.linalg.norm(self.quarks[n].mom-self.quarks[op].mom)))*self.conf['dt']),op) for op in options],state) for state in self.conf['StateList']],'RGR')
 
             # X channel
 
             # Y channel
 
 
-            pB = probBlock([RGRpBs])
+            #Collect probablities of different channels together
+            pB = probBlock([RGRpBs],'')
             result = pB(np.random.uniform())
 
-            choice = result[-1]
-            if choice != None:
-                if QInds[flip(self.quarks[n].anti)][choice] == n:
+            if result != None:
+                choice = result[0]
+                if QInds[flip(self.quarks[n].anti)][int(choice)] == n:
                     n+=1
                     continue
                 
-                self.combineQuarks([n,QInds[flip(self.quarks[n].anti)][choice]])
+                #Read channel and sample outgoing momentum
 
-                QStates = [[self.get0QuarkX(),self.get0QuarkP()],[self.get1QuarkX(),self.get1QuarkP()]]
+                #RGR channel
+                if result[2]=='RGR':
+
+                    qE = ((np.linalg.norm(self.quarks[n].mom-self.quarks[choice].mom)**2)/self.conf['M'+result[1]])+self.conf['E'+result[1]] # Gluon energy is fixed by prel
+                    CosTg = (np.random.uniform()*2)-1
+                    SinTg = np.sqrt(1-(CosTg**2))
+                    Phig = np.random.uniform()*np.pi*2
+                    qP = np.array([qE*SinTg*np.cos(Phig), qE*SinTg*np.sin(Phig), qE*CosTg])
+
+                self.combineQuarks([n,QInds[flip(self.quarks[n].anti)][choice]],result[1], -qP)
+
+                #QStates = [[self.get0QuarkX(),self.get0QuarkP()],[self.get1QuarkX(),self.get1QuarkP()]]
                 QInds = [self.get0QuarkInd(),self.get1QuarkInd()]
                 
                 
             else:
                 n+=1
+        
+        # Dissociation
+
         n = 0
-        for bnd in self.bounds:
+        for bnd in self.bounds: # iterate over all bound states
             # RGA channel
             RGApBs = probBlock([probBlock(self.rates['RGA'][state]*self.conf['dt'],state) for state in self.conf['StateList']],'RGA')
             
@@ -199,7 +212,7 @@ class particleList:
                 if result[1] == 'RGA':
                     resamp = True
                     while resamp:
-                        qtry = np.random.uniform(self.conf['E'+result[0]],self.conf['E'+result[0]]*self.conf['NPts']) # !!!!!!
+                        qtry = np.random.uniform(self.conf['E'+result[0]],self.conf['E'+result[0]]*self.conf['NPts']) 
                         if np.random.uniform() < self.dists['RGA'][result[0]](qtry):
                             resamp = False
                     pmag = (qtry - self.conf['E'+result[0]])/self.conf['M'+result[0]]
@@ -222,8 +235,15 @@ class particleList:
         return [len(self.bounds),len(self.quarks)]
     def getOccupationRatio(self):
         return 2*len(self.bounds)/(len(self.quarks)+2*len(self.bounds))
+    def getMoms(self):
+        return [np.linalg.norm(qrk.mom) for qrk in self.quarks]  
+    def getMomDist(self):
+        data = [np.norm(qrk.mom) for qrk in self.quarks]
+        pBins = np.linspace(0,self.conf['pCut'],40)
+        hist, bin_edges = np.histogram(data, bins = pBins)
+        return hist
     def recLine(self):
-        self.rec.append([self.time,self.getOccupationRatio()])
+        self.rec.append([self.time, self.getOccupationRatio()])
             
             
     

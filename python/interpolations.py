@@ -5,7 +5,9 @@ import numpy as np
 import csv
 from scipy.integrate import quad
 from scipy.interpolate import CubicSpline
+from scipy.interpolate import RegularGridInterpolator
 from scipy.optimize import fmin
+
 
 
 
@@ -71,8 +73,7 @@ def RGAint(q, conf, state):  # state = '1S', '2S' ... this is just the integrand
     return np.power(q, 3) * np.sqrt(conf['M'+state]*(q-conf['E'+state])) * (1/(np.exp(q/conf['T'])-1)) * (OvLp(conf, q, state))
 
 def getRGArate(conf, state): # this numerically integrates the RGA integrand from Enl to ['ECut']*Enl and multiplies by the prefactor
-    res, error = quad(RGAint, conf['E'+state], conf['E'+state]*50, args=(conf, state))
-    print(type(res))
+    res, error = quad(RGAint, conf['E'+state], conf['E'+state]*conf['ECut'], args=(conf, state))
     return res *((conf['alphaS']*conf['M'+state])/(9*(np.pi**2)))
 
 def getRGAdist(conf, state): # this will evaluate the sampling distribution function in the range Enl - ['ECut']*Enl and returns an interpolation (and adding the point I(q=Enl)=0) and normal
@@ -96,10 +97,14 @@ def RGRsum(x, pr, conf, state): # x-relative spearation pr-relaltive momentum
 def getRGRrate(conf, state):
     prVals = np.linspace(0,conf['prCut'],conf['NPts'])
     woZero = prVals[1:]
-    xVals = np.linspace(0,conf['L'],conf['NPts'])
+    xVals = np.linspace(0,conf['L']*2,conf['NPts'])
     result = RGRsum(xVals[:,None],woZero[None,:],conf,state)
-    print(type(result))
-    exit()
+    sampledPts = np.column_stack((np.linspace(0,0,conf['NPts']),result))
+    if eval(conf['ExportRates']):
+        with open('../export/rateRGR_'+state+'.tsv', 'w') as f:
+            np.savetxt(f, sampledPts, delimiter='\t', fmt='%.8f', newline='\n')
+    
+    return RegularGridInterpolator((xVals,prVals),sampledPts)
 
 
 
