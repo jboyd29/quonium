@@ -80,6 +80,9 @@ def getRGAdist(conf, state): # this will evaluate the sampling distribution func
     xVals = np.linspace(conf['E'+state], conf['ECut']*conf['E'+state],conf['NPts'])
     woZero = xVals[1:]
     sampledPts = np.concatenate(([0],RGAint(woZero, conf, state)))
+    if eval(conf['ExportRates']):
+        with open('../export/rateRGA_'+state+'.tsv', 'w') as f:                 
+            np.savetxt(f, sampledPts, delimiter='\t', fmt='%.8f', newline='\n')
     interp = CubicSpline(xVals,-sampledPts) 
     #normalized this for sampling s.t. max(I) = 1
     Imax = -fmin(interp, np.array(2*conf['E'+state]), full_output=0)

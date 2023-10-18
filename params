@@ -5,7 +5,7 @@
 L 10
 
 # Simulation time step
-dt 0.01
+dt 0.1
 
 # Temperature [GeV]
 T 0.2
@@ -19,7 +19,7 @@ tFn 100
 NY 1
 
 # Initial number of bb parirs
-Nbb 100
+Nbb 49
 
 ### Particle Masses
 
@@ -29,13 +29,13 @@ Mb 4.65
 
 M1S 9.460
 
-M2S 3
+M2S 10.023
 
 # Binding energies
 
 E1S 0.13
 
-E2S 1
+E2S 0.723
 
 # Particle Cross-sections
 bsig 0.01
@@ -62,7 +62,7 @@ NC 3
 ECut 20
 
 # Relative momentum cutoff for interpotaions and sampling (!!! No idea what this should be, function seems boring after this tho)
-prCut 150
+prCut 5
 
 # Number of sampled points for interpolations and sampling
 NPts 500
