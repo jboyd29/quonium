@@ -58,7 +58,7 @@ def OvLp(conf, q , state):
     eta = conf['alphaS']*conf['M'+state]/(4*conf['NC']*pr)
     aB = 2/(conf['alphaS']*conf['CF']*conf['M'+state]) 
     if state == '1S':
-        return ( ((2**9)*(np.pi**2)*(eta)*(np.power(aB,7))*(np.power(pr,2))*(1+np.power(eta,2))*np.power(2+eta*aB*pr,2))  /  ((np.power(1+(aB**2)*np.power(pr,2),6))*(np.exp(2*np.pi*eta)-1)) ) * np.exp(4*eta*np.arctan(2*aB*pr))
+        return ( ((2**9)*(np.pi**2)*(eta)*(np.power(aB,7))*(np.power(pr,2))*(1+np.power(eta,2))*np.power(2+eta*aB*pr,2))  /  ((np.power(1+(aB**2)*np.power(pr,2),6))*(np.exp(2*np.pi*eta)-1)) ) * np.exp(4*eta*np.arctan(aB*pr))
 
     elif state == '2S':
         return 0
@@ -95,7 +95,7 @@ def getRGAdist(conf, state): # this will evaluate the sampling distribution func
 
 def RGRsum(x, pr, conf, state): # x-relative spearation pr-relaltive momentum
     aB = 2/(conf['alphaS']*conf['CF']*conf['M'+state]) 
-    return ( np.exp(-(x**2)/(2*(aB**2))) / ((2*np.pi*(aB**2))**(3/2)) ) * (8/9)*(conf['alphaS'])*np.power(conf['E'+state]+((pr**2)/conf['M'+state]),3)*OvLp(conf,conf['E'+state]+((pr**2)/conf['M'+state]), state)
+    return ( np.exp(-(x**2)/(2*(aB**2))) / ((2*np.pi*(aB**2))**(3/2)) ) * (8/9)*(conf['alphaS'])*np.power(conf['E'+state]+((pr**2)/conf['M'+state]),3) * (2+(2/(np.exp((conf["E"+state]+(np.power(pr,2)/conf["M"+state]))/conf["T"])+1))) * OvLp(conf,conf['E'+state]+((pr**2)/conf['M'+state]), state)
 
 def getRGRrate(conf, state):
     prVals = np.linspace(0,conf['prCut'],conf['NPts'])

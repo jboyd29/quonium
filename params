@@ -62,10 +62,10 @@ NC 3
 ECut 20
 
 # Relative momentum cutoff for interpotaions and sampling (!!! No idea what this should be, function seems boring after this tho)
-prCut 5
+prCut 20
 
 # Number of sampled points for interpolations and sampling
-NPts 500
+NPts 50
 
 # Export points sampled for rate interpolations
 ExportRates True
