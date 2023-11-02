@@ -5,13 +5,13 @@
 L 10
 
 # Simulation time step
-dt 0.1
+dt 0.01
 
 # Temperature [GeV]
 T 0.2
 
 # Total number of simulation steps
-tFn 100
+tFn 200
 
 ### Initial occupations
 
@@ -19,7 +19,7 @@ tFn 100
 NY 1
 
 # Initial number of bb parirs
-Nbb 49
+Nbb 100
 
 ### Particle Masses
 
@@ -69,5 +69,12 @@ NPts 50
 
 # Export points sampled for rate interpolations
 ExportRates True
+
+# Number of space partitions in each direction (L/NXPart = space cutoff for 2 particle rate functions)
+NXPart 5
+
+# Number of threads for multithreading
+NThreads 2
+
 
 boop gleep

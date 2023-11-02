@@ -7,24 +7,36 @@ from interpolations import rateMan
 from interpolations import sampMan
 from interpolations import probBlock
 
+import threading
+import time
+
 def flip(n):
     if n == 0:
         return 1
     elif n == 1: 
         return 0
 
+# Generates a random 8 character hex string
+def hash8():
+    return '%08x' % np.random.randint(16**8)
+
 class quark:
     def __init__(self, conf, anti=0):
         self.conf = conf
         self.anti = anti
+        self.name = hash8()
         # Initial positions are sampled randomly throughout the box
         self.pos = np.random.uniform(3)*conf['L']
         # Inital momentums are sampled from a Boltzmann distribution
         self.mom = np.random.normal(loc=0, scale=np.sqrt(conf['T']/conf['Mb']),size=3)
+        # Space partition
+        self.XPart = np.floor(pos*conf['NXPart']/conf['L']).astype(int)
+        self.mom4 = np.insert(self.mom,0,np.array((np.dot(self.mom, self.mom)+(self.conf['Mb']**2))),axis=0)
     def Xstep(self):
         self.pos = (self.pos + (self.mom/np.sqrt((self.conf['Mb']**2)+np.dot(self.mom,self.mom)))*self.conf['dt'])%self.conf['L']
     def Pstep(self):
         self.mom = self.mom*(1-0.001) #Drag
+        self.mom4 = np.insert(self.mom,0,np.array((np.dot(self.mom, self.mom)+(self.conf['Mb']**2))),axis=0) #Update mom4  
     def exchangeStep(self, partners): # partners = [partner_Xs, partner_Ps]
         partner_Xs = partners[0]
         partner_Ps = partners[1]        
@@ -34,6 +46,15 @@ class quark:
         if np.random.uniform() < 0.00001:
             return np.random.randint(len(partner_Xs))-1
         return None
+    def posT(self):
+        newXP = np.floor(pos*conf['NXPart']/conf['L']).astype(int) 
+        if newXP == self.XPart:
+            return False, None, None
+        else:
+            old = self.XPart
+            self.XPart = new
+            return True, old, new
+
  
         
     #def combine(self):
@@ -76,6 +97,10 @@ class bound:
         self.quarks[1].mom = -prel + q/2
         return self.quarks
         
+
+
+
+
 class particleList:
     def __init__(self, conf, rates, dists):
         self.conf = conf
@@ -86,6 +111,9 @@ class particleList:
 
         self.rates = rates
         self.dists = dists
+
+        self.XParts = [[[{} for i in range(conf['NXPart'])] for j in range(conf['NXPart'])] for k in range(conf['NXPart'])]
+        self.quarkD = {tag:qrk.anti for qrk in self.quarks}
         
     def getQuarkX(self):
         return [qrk.pos for qrk in self.quarks]
@@ -99,6 +127,8 @@ class particleList:
         return [qrk.mom for qrk in self.quarks if qrk.anti==0]
     def get1QuarkP(self):
         return [qrk.pos for qrk in self.quarks if qrk.anti==1]
+    def getNQuarkRels(self, n, anti=0):
+        return [[np.linalg.norm(quarks[i].pos-quarks[n].pos),np.linalg.norm(quarks[i].mom-quarks[n].mom)] for i in range(len(quarks)) if quarks[i].anti==anti and i!=n and np.linalg.norm(quarks[i].pos-quarks[n].pos) < conf['XCut'] and np.linalg.norm(quarks[i].mom-quarks[n].mom) < conf['prCut']]
     def getBoundX(self):
         return [bnd.pos for bnd in self.bounds]
     def getBoundP(self):
@@ -231,6 +261,121 @@ class particleList:
 
 
         self.time += self.conf['dt']
+
+
+    def step2(self):
+    #electric boogaloo
+        for tag in self.quarkD.keys():
+            self.quarks[tag].Xstep()
+        for bnd in self.bounds:
+            bnd.Xstep()
+        # P-step
+        for tag in self.quarkD.keys():
+            self.quarks[tag].Pstep()
+        for bnd in self.bounds:
+            bnd.Pstep()
+        
+        # Update space partitions
+        self.updateXPart()
+
+        # Exchange-step
+
+        # Regeneration
+
+        # Distribute partition updates over conf['NThreads'] number of threads
+        # Generate ijk target list for each thread and start
+
+        threadList = []
+
+        
+        for i in range(self.conf['NThreads']):
+            thread = threading.Thread(target=self.getRE_worker,)
+            threadList.append(thread)
+            thread.start()
+        
+        for thread in threadList:
+            thread.join()
+
+        # Manage conflicts
+
+
+
+
+
+
+
+        # Dissociation
+
+
+        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    def updateXPart(self):
+        for tag, qrk in self.quarkD.items():
+            XPmove, new, old = qrk.posT()
+            if XPmove:
+                del self.XParts[old[0]][old[1]][old[2]][tag]
+                self.XParts[new[0]][new[1]][new[2]][tag] = qrk.anti
+
+    def getRE_worker(self,targetList):
+        for tg in targetList:
+            self.getRecomEvents(tg[0],tg[1],tg[2])
+
+
+    # Return recombination events for for XParts[i][j][k]
+    def getRecomEvents(self,i,j,k):
+        # Gets all  qrk.anti==0 qrks in partition ijk
+        inTags = [tag for tag, ant self.XPart[i][j][k].items() if ant==0)
+        #Iterates over each box in neighborhood and collects all antiquark tags
+        parTags = [tag for tag, ant in self.XParts[t][u][v].items() for t in (i-1,i,i+1) for u in (j-1,j,j+1) for v in (k-1,k,k+1) if ant==1]
+        # For each tag in XPart[i][j][k] get all valid pairs of quark-antiquark momentums and separations
+        xpPairs = [{tagIn+tagPar:[self.quarkD[tagIn].mom4, self.quarkD[tagPar].mom4, self.quarkD[tagIn].pos, self.quarkD[tagPar].pos]} for tagIn in inTags for tagPar in parTags]
+        # Then we need to boost all of these momentum pairs into p1 + p2
+
+        #  SKIPPED 
+
+        ### No Boost
+        pairtags = [pairtag for pairtag, xpP in xpPairs.items()]
+        inpVars = np.array([[np.linag.norm(xpP[0][1:]-xpP[1][1:]),np.linag.norm(xpP[2]-xpP[3])] for pairtag, xpP in xpPairs.items()])
+
+        # roll recombination in each channel
+        # floor(rateFunc(xr,pr)*dt - R) + 1  with R in (0,1) <-- this should be 1 for a recombination and 0 otherwise
+        # RGA channel
+        RGAres = {st:np.floor(self.rates['RGA'][st](inpVars[0,:],inpVars[1,:])*self.conf['dt']-np.random(len(pairtags))).astype(int)+1 for st in self.conf['StateList']}
+
+
+        res = []
+        for i in range(len(pairtags)):
+            resLine = [RateRes[st][i] for st in RateRes.keys() for RateRes in (RGAres,)]
+            if np.all(resLine == 0):
+                continue
+            else:
+                res.append([pairtags[i],resLine])
+
+        self.XPresCon[i][j][k] = res
+
+
+
+        
+
+
+
+
+
+
+
     def getOccupations(self):
         return [len(self.bounds),len(self.quarks)]
     def getOccupationRatio(self):
