@@ -104,6 +104,7 @@ class bound:
 class particleList:
     def __init__(self, conf, rates, dists):
         self.conf = conf
+        self.cl = stepClock(self.conf['tFn'])
         self.time = 0.0
         self.quarks = [quark(conf,anti=n) for i in range(conf['Nbb']) for n in [0,1]]
         self.bounds = [bound(conf) for i in range(conf['NY'])]
@@ -114,6 +115,7 @@ class particleList:
 
         self.XParts = [[[{} for i in range(conf['NXPart'])] for j in range(conf['NXPart'])] for k in range(conf['NXPart'])]
         self.quarkD = {tag:qrk.anti for qrk in self.quarks}
+        self.XPresCon = [[[]*self.conf['NXPart']]*self.conf['NXPart']]*self.conf['NXPart']
         
     def getQuarkX(self):
         return [qrk.pos for qrk in self.quarks]
@@ -264,7 +266,10 @@ class particleList:
 
 
     def step2(self):
-    #electric boogaloo
+        #electric boogaloo
+
+        self.cl.start()
+
         for tag in self.quarkD.keys():
             self.quarks[tag].Xstep()
         for bnd in self.bounds:
@@ -296,18 +301,49 @@ class particleList:
         for thread in threadList:
             thread.join()
 
-        # Manage conflicts
+        # Get events and manage conflicts
+
+        events = getChkdEvents()
 
 
 
 
-
-
-
-        # Dissociation
-
-
+        #Dissociation
         
+
+
+
+
+
+
+
+
+
+
+
+
+    # Events come down as a list [str(name1+name2), [channel, state]] (with collisions within the same pair already handled)
+    # To check collisions across pairs, this reads in all the pairs to ColCheck as {name1:name2 , ...}  and to see if any are used twice, whenever
+    # a new one is added ColCheck.keys() and ColCheck.items() are checked, then confilcts can be handled when one returns false
+    def getChkdEvents(self):
+        events = {}
+        ColCheck = {}
+        for ev in self.XPresCon[i][j][k] for i in range(self.conf['NXPart']) for j in range(self.conf['NXPart']) for k in range(self.conf['NXPart']):
+            if ev[0][:8] not in ColCheck.keys() and ev[0][8:] not in ColCheck.items():
+                ColCheck[ev[0][:8]] = ev[0][8:]
+                events[ev[0]] = ev[1] # add to event list
+            else:
+                continue
+                # This is where conflicts will be handled but at first pass they will just be dropped !!!!!!!!!!!!!!!!!!! (This is roughly equivalent to how it worked 
+                # before with these just never getting rolled in the first place)
+        return events
+
+
+
+    def recomEvent(event): # these events come as ['name1name2',[state, channel]]
+
+        if event[1][1] == 'RGA':
+            
 
 
 
@@ -351,20 +387,27 @@ class particleList:
         inpVars = np.array([[np.linag.norm(xpP[0][1:]-xpP[1][1:]),np.linag.norm(xpP[2]-xpP[3])] for pairtag, xpP in xpPairs.items()])
 
         # roll recombination in each channel
-        # floor(rateFunc(xr,pr)*dt - R) + 1  with R in (0,1) <-- this should be 1 for a recombination and 0 otherwise
+        # floor(rateFunc(xr,pr)*dt - R) + 1  with (random number)R in (0,1) <-- this should be 1 for a recombination and 0 otherwise
         # RGA channel
         RGAres = {st:np.floor(self.rates['RGA'][st](inpVars[0,:],inpVars[1,:])*self.conf['dt']-np.random(len(pairtags))).astype(int)+1 for st in self.conf['StateList']}
 
 
         res = []
+        evTagKey = [[st, ch] for ch in ('RGA',) for st in RateRes.keys()] # This tuple of tags should have the same order as in resLine
         for i in range(len(pairtags)):
-            resLine = [RateRes[st][i] for st in RateRes.keys() for RateRes in (RGAres,)]
+            resLine = np.array([RateRes[st][i] for RateRes in (RGAres,) for st in RateRes.keys()])
             if np.all(resLine == 0):
                 continue
             else:
-                res.append([pairtags[i],resLine])
+                for j in range(len(evTagKey)):
+                    if resLine[j] == 1:
+                        res.append([pairtags[i],evTagKey[j]]) # Get state and channel for sampled events !!! This just takes the first one to avoid conflicts within the same pair 
+                        # But you should be able to order this so you always take the higher rate event (there should be some rate ordering for the same x,p pair)
+                        break
 
-        self.XPresCon[i][j][k] = res
+                #res.append([pairtags[i],resLine])
+
+        self.XPresCon[i][j][k] = res  #This is a list with elements ['name1name2',[state, channel]]
 
 
 

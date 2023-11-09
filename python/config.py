@@ -1,5 +1,6 @@
 # config.py
 #
+import time
 
 def parse_string(input_string):
     try:
@@ -47,3 +48,33 @@ class config:
     def echoParams(self):
         for key in self.data.keys():
             print(key,':',self.data[key])
+
+
+# Timer for step time output
+class stepClock:
+    def __init__(self, NSteps):
+        self.NSteps = NSteps
+        self.initTime = time.time()
+        self.startTime = time.time()
+        self.stopTime = time.time()
+        self.stepTimes = []
+        self.totTimes = []
+    def start(self):
+        self.startTime = time.time()
+    def stop(self):
+        self.stopTime = time.time()
+        # Add last step time difference to list
+        self.stepTimes.append(self.stopTime - self.startTime)
+        # Update total time elapsed
+        self.totTimes.append(self.stopTime - self.initTime)
+    def getStepTime(self):
+        return self.format_Ts(self.stepTimes[-1])
+    def getElapTime(self):
+        return self.format_Ts(self.totTimes[-1])
+    def getExpectTime(self):
+        return self.format_Ts(np.mean(self.stepTimes)*(self.NSteps - len(self.stepTimes)))
+    def format_Ts(self, seconds):
+        hours, remainder = divmod(seconds, 3600)
+        minutes, seconds = divmod(remainder, 60)
+        fractional_seconds = int((seconds - int(seconds))*100)
+        return f"{int(hours):02d}:{int(minutes):02d}:{int(seconds):02d}.{fractional_seconds:02d}"
