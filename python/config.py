@@ -2,6 +2,8 @@
 #
 import time
 
+import numpy as np
+
 def parse_string(input_string):
     try:
         # Try to parse as an int 
@@ -50,7 +52,6 @@ class config:
             print(key,':',self.data[key])
 
 
-# Timer for step time output
 class stepClock:
     def __init__(self, NSteps):
         self.NSteps = NSteps
@@ -78,3 +79,15 @@ class stepClock:
         minutes, seconds = divmod(remainder, 60)
         fractional_seconds = int((seconds - int(seconds))*100)
         return f"{int(hours):02d}:{int(minutes):02d}:{int(seconds):02d}.{fractional_seconds:02d}"
+
+class conOutput:
+    def __init__(self, LabelSpacing = [['t [fm/c]',12],['Nhid/Ntot',12],['StepTime',12],['ExpTime',12]]):
+        self.LS = LabelSpacing #Spacing for console ouput
+    def printHeader(self):
+        print(" ".join([Sp[0][:Sp[1]].ljust(Sp[1]," ") for Sp in self.LS]))
+        print("="*(len(self.LS)-1+sum([Sp[1] for Sp in self.LS])))
+    def printLine(self, data):
+        print(" ".join([str(data[i])[:self.LS[i][1]].ljust(self.LS[i][1]," ") for i in range(len(self.LS))]))
+
+def colr(text, color):
+    return '\033[38;2;'+str(color[0])+';'+str(color[1])+';'+str(color[2])+'m'+text+'\033[0m'

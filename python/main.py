@@ -2,7 +2,9 @@
 #
 
 import numpy as np
+
 from config import config
+from config import conOutput
 from particles import quark
 from particles import bound
 from particles import particleList
@@ -35,6 +37,24 @@ conf.echoParams()
 
 Loc_rates = rateMan(conf)
 Loc_dists = sampMan(conf)
+
+
+box = particleList(conf, Loc_rates, Loc_dists)
+
+conOut = conOutput()
+conOut.printHeader()
+
+for i in range(conf['tFn']):
+    box.step2()
+    box.recLine()
+    conOut.printLine([box.rec[-1][0], box.rec[-1][1], box.cl.getStepTime(), box.cl.getExpectTime()])
+
+
+
+exit()
+
+
+
 
 
 def runBox(box,i):
