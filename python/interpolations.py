@@ -74,7 +74,7 @@ def RGAint(q, conf, state):  # state = '1S', '2S' ... this is just the integrand
 
 def getRGArate(conf, state): # this numerically integrates the RGA integrand from Enl to ['ECut']*Enl and multiplies by the prefactor
     res, error = quad(RGAint, conf['E'+state], conf['E'+state]*conf['ECut'], args=(conf, state))
-    return res *((conf['alphaS']*conf['M'+state])/(9*(np.pi**2)))
+    return res *((conf['alphaS']*conf['M'+state]*4)/(9*(np.pi**2)))
 
 def getRGAdist(conf, state): # this will evaluate the sampling distribution function in the range Enl - ['ECut']*Enl and returns an interpolation (and adding the point I(q=Enl)=0) and normal
     xVals = np.linspace(conf['E'+state], conf['ECut']*conf['E'+state],conf['NPts'])
@@ -95,7 +95,7 @@ def getRGAdist(conf, state): # this will evaluate the sampling distribution func
 
 def RGRsum(x, pr, conf, state): # x-relative spearation pr-relaltive momentum
     aB = 2/(conf['alphaS']*conf['CF']*conf['M'+state]) 
-    return ( np.exp(-(x**2)/(2*(aB**2))) / ((2*np.pi*(aB**2))**(3/2)) ) * (8/9)*(conf['alphaS'])*np.power(conf['E'+state]+((pr**2)/conf['M'+state]),3) * (2+(2/(np.exp((conf["E"+state]+(np.power(pr,2)/conf["M"+state]))/conf["T"])+1))) * OvLp(conf,conf['E'+state]+((pr**2)/conf['M'+state]), state)
+    return (conf['gs']/(conf['NC']**2)) * ( np.exp(-(x**2)/(2*(aB**2))) / ((2*np.pi*(aB**2))**(3/2)) ) * (8/9)*(conf['alphaS'])*np.power(conf['E'+state]+((pr**2)/conf['M'+state]),3) * (2+(2/(np.exp((conf["E"+state]+(np.power(pr,2)/conf["M"+state]))/conf["T"])+1))) * OvLp(conf,conf['E'+state]+((pr**2)/conf['M'+state]), state)
 
 def getRGRrate(conf, state):
     prVals = np.linspace(0,conf['prCut'],conf['NPts'])

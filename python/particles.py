@@ -330,23 +330,22 @@ class particleList:
 
         # Get events and manage conflicts
 
-        events = self.getChkdREvents()
+        self.events = self.getChkdREvents()
 
-        for event in events.items():
+        for event in self.events.items():
             self.recomEvent(event)
 
 
-
+        #print('R:',self.events)
 
         #Dissociation
         
         #for tag in self.boundCon.keys():
          #   self.checkDissoc(tag)
+        self.Devents = self.getDissocEvs()
+        self.doDissocEvs(self.Devents)
 
-        Devents = self.getDissocEvs()
-        self.doDissocEvs(Devents)
-
-
+        #print('D:',self.Devents)
         #print('Boundtags:',self.boundCon.keys())
         # Increment time
         self.time += self.conf['dt']
@@ -417,7 +416,10 @@ class particleList:
         for tag in self.boundCon.keys():
             RGAprob = self.rates['RGA'][self.boundCon[tag].state]*self.conf['dt']
             disspB = probBlock([probBlock(RGAprob,'RGA')],tag)
-            res.append(disspB(np.random.uniform()))
+            roll = disspB(np.random.uniform())
+            if roll == None:
+                continue
+            res.append(roll)
         return res
 
     def doDissocEvs(self, evs):
@@ -426,7 +428,7 @@ class particleList:
                 continue
             else:
                 #print('tag:',tag)
-                print('D:',result)
+                #print('D:',result)
                 if result[0] == 'RGA':
                     resamp = True
                     st = self.boundCon[result[1]].state
@@ -455,7 +457,7 @@ class particleList:
                     #Do y channel
                     continue
 
-
+    # UNUSED
     #This function gets a tag and checks AND does the dissociation
     def checkDissoc(self, tag):
         RGAprob = self.rates['RGA'][self.boundCon[tag].state]*self.conf['dt']
@@ -468,7 +470,7 @@ class particleList:
             return
         else:
             #print('tag:',tag)
-            print('D:',result)
+            #print('D:',result)
             if result[0] == 'RGA':
                 resamp = True
                 st = self.boundCon[tag].state
@@ -608,7 +610,12 @@ class particleList:
                 for k in range(self.conf['NXPart']):
                     tot += len(self.XParts[i][j][k].keys())
         return tot
-            
+    
+    def getNREvs(self):
+        return len(self.events)
+    def getNDEvs(self):
+
+        return len(self.Devents)
             
     
     

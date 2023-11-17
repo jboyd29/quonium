@@ -47,8 +47,16 @@ conOut.printHeader()
 for i in range(conf['tFn']):
     box.step2()
     box.recLine()
-    conOut.printLine([box.rec[-1][0], box.rec[-1][1], box.cl.getStepTime(), box.cl.getExpectTime()])
+    conOut.printLine([box.rec[-1][0], box.rec[-1][1], box.getNDEvs(), box.getNREvs(), box.cl.getStepTime(), box.cl.getExpectTime()])
+    
+X = [line[0] for line in box.rec]
+Y = [line[1] for line in box.rec]
 
+plt.plot(X,Y)
+plt.xlabel('t')
+plt.ylabel('Nb_bound/Nb_total')
+plt.title('Bound Fraction')
+plt.show()
 
 
 exit()

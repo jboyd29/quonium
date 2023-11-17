@@ -81,13 +81,19 @@ class stepClock:
         return f"{int(hours):02d}:{int(minutes):02d}:{int(seconds):02d}.{fractional_seconds:02d}"
 
 class conOutput:
-    def __init__(self, LabelSpacing = [['t [fm/c]',12],['Nhid/Ntot',12],['StepTime',12],['ExpTime',12]]):
+    def __init__(self, LabelSpacing = [['t [fm/c]',12,None],['Nhid/Ntot',12,None],['#D',4,(200,50,50)],['#R',4,(50,50,200)],['StepTime',12,None],['ExpTime',12,None]]):
         self.LS = LabelSpacing #Spacing for console ouput
     def printHeader(self):
         print(" ".join([Sp[0][:Sp[1]].ljust(Sp[1]," ") for Sp in self.LS]))
         print("="*(len(self.LS)-1+sum([Sp[1] for Sp in self.LS])))
     def printLine(self, data):
-        print(" ".join([str(data[i])[:self.LS[i][1]].ljust(self.LS[i][1]," ") for i in range(len(self.LS))]))
+        lineItems = [str(data[i])[:self.LS[i][1]].ljust(self.LS[i][1]," ") for i in range(len(self.LS))]
+        for i in range(len(lineItems)):
+            if self.LS[i][2] == None:
+                continue
+            else:
+                lineItems[i] = colr(lineItems[i],self.LS[i][2])
+        print(" ".join(lineItems))
 
 def colr(text, color):
     return '\033[38;2;'+str(color[0])+';'+str(color[1])+';'+str(color[2])+'m'+text+'\033[0m'
