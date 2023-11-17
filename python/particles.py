@@ -82,7 +82,7 @@ class bound:
             self.mom = np.random.normal(loc=0, scale=np.sqrt(conf['T']/conf['M'+self.state]),size=3)/100
             # Initialize constituent quarks
             self.quarks = [quark(conf),quark(conf,anti=1)]
-            self.name = hash8()
+            self.name = self.quarks[0].name + self.quarks[1].name
         else:
             self.quarks = quarks
             self.name = self.quarks[0].name+self.quarks[1].name
@@ -340,10 +340,14 @@ class particleList:
 
         #Dissociation
         
-        for tag in self.boundCon.keys():
-            self.checkDissoc(tag)
+        #for tag in self.boundCon.keys():
+         #   self.checkDissoc(tag)
+
+        Devents = self.getDissocEvs()
+        self.doDissocEvs(Devents)
 
 
+        #print('Boundtags:',self.boundCon.keys())
         # Increment time
         self.time += self.conf['dt']
         # Stop timer
@@ -407,7 +411,51 @@ class particleList:
 
         # create new bound object and pop quarks out of quarkD, and add bound to bound list
         self.boundCon[tags] = bound(self.conf, quarks=[self.quarkCon.pop(tags[:8]),self.quarkCon.pop(tags[8:])], state=state, p=qP)
-        
+    
+    def getDissocEvs(self):
+        res = []
+        for tag in self.boundCon.keys():
+            RGAprob = self.rates['RGA'][self.boundCon[tag].state]*self.conf['dt']
+            disspB = probBlock([probBlock(RGAprob,'RGA')],tag)
+            res.append(disspB(np.random.uniform()))
+        return res
+
+    def doDissocEvs(self, evs):
+        for result in evs:
+            if result == None:
+                continue
+            else:
+                #print('tag:',tag)
+                print('D:',result)
+                if result[0] == 'RGA':
+                    resamp = True
+                    st = self.boundCon[result[1]].state
+                    while resamp:
+                        qtry = np.random.uniform(self.conf['E'+st],self.conf['E'+st]*self.conf['NPts']) 
+                        if np.random.uniform() < self.dists['RGA'][st](qtry):
+                            resamp = False
+                    pmag = (qtry - self.conf['E'+st])/self.conf['M'+st]
+                    CosThet = (np.random.uniform()*2)-1
+                    SinThet = np.sqrt(1-(CosThet)**2)
+                    Phi = np.random.uniform()*2*np.pi
+                    
+                    qCosThet = (np.random.uniform()*2)-1
+                    qSinThet = np.sqrt(1-(CosThet)**2)
+                    qPhi = np.random.uniform()*2*np.pi
+                    
+                    
+                    pr = np.array([pmag*SinThet*np.cos(Phi),pmag*SinThet*np.sin(Phi),pmag*CosThet])
+                    pq = np.array([qtry*qSinThet*np.cos(qPhi),qtry*qSinThet*np.sin(qPhi),qtry*qCosThet])
+                    self.dissociateBoundTag(result[1],pr,pq)
+                    continue
+                elif result[0] == 'X':
+                    #Do x channel
+                    continue
+                elif result[0] == 'Y':
+                    #Do y channel
+                    continue
+
+
     #This function gets a tag and checks AND does the dissociation
     def checkDissoc(self, tag):
         RGAprob = self.rates['RGA'][self.boundCon[tag].state]*self.conf['dt']
@@ -419,14 +467,16 @@ class particleList:
         if result == None:
             return
         else:
-            
-            if result[1] == 'RGA':
+            #print('tag:',tag)
+            print('D:',result)
+            if result[0] == 'RGA':
                 resamp = True
+                st = self.boundCon[tag].state
                 while resamp:
-                    qtry = np.random.uniform(self.conf['E'+result[0]],self.conf['E'+result[0]]*self.conf['NPts']) 
-                    if np.random.uniform() < self.dists['RGA'][result[0]](qtry):
+                    qtry = np.random.uniform(self.conf['E'+st],self.conf['E'+st]*self.conf['NPts']) 
+                    if np.random.uniform() < self.dists['RGA'][st](qtry):
                         resamp = False
-                pmag = (qtry - self.conf['E'+result[0]])/self.conf['M'+result[0]]
+                pmag = (qtry - self.conf['E'+st])/self.conf['M'+st]
                 CosThet = (np.random.uniform()*2)-1
                 SinThet = np.sqrt(1-(CosThet)**2)
                 Phi = np.random.uniform()*2*np.pi
@@ -448,12 +498,15 @@ class particleList:
                 return
 
     def dissociateBoundTag(self, tag, pr, pq):
+        #print('DBG0:',len(self.boundCon.keys()))
         qrks = self.boundCon[tag].dissociate(pr, pq)
+        #print('DBG1:',len(self.boundCon.keys()))
         del self.boundCon[tag]
+        #print('DBG2:',len(self.boundCon.keys()))
         for qrk in qrks:
             self.quarkCon[qrk.name] = qrk
             loc = qrk.getPosT()
-            self.XPart[loc[0]][loc[1]][loc[2]][qrk.name] = qrk.anti
+            self.XParts[loc[0]][loc[1]][loc[2]][qrk.name] = qrk.anti
 
 
 
