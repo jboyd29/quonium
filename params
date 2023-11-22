@@ -11,15 +11,15 @@ dt 0.1
 T 0.2
 
 # Total number of simulation steps
-tFn 500
+tFn 400
 
 ### Initial occupations
 
 # Initial number of bound states
-NY 10000
+NY 1
 
 # Initial number of bb parirs
-Nbb 100
+Nbb 2000
 
 ### Particle Masses
 
@@ -67,7 +67,7 @@ ECut 20
 prCut 20
 
 # Number of sampled points for interpolations and sampling
-NPts 50
+NPts 100
 
 # Export points sampled for rate interpolations
 ExportRates True
@@ -76,7 +76,6 @@ ExportRates True
 NXPart 5
 
 # Number of threads for multithreading
-NThreads 10
-
+NThreads 14
 
 boop gleep

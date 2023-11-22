@@ -13,6 +13,8 @@ from config import colr
 import threading
 import time
 
+import multiprocessing
+
 
 def flip(n):
     if n == 0:
@@ -91,7 +93,7 @@ class bound:
     def Xstep(self):
         self.pos = (self.pos + (self.mom/np.sqrt((self.conf['M'+self.state]**2)+np.dot(self.mom,self.mom)))*self.conf['dt'])%self.conf['L']
     def Pstep(self):
-        self.mom = self.mom*(1-0.01) #tiny drag
+        self.mom = self.mom*(1-0.001) #tiny drag
     def exchangeStep(self): #CURRENTLY UNUSED
         # Here it would take the dissocation rate but for now ot will be random
         if np.random.uniform() < 0.005:
@@ -293,10 +295,10 @@ class particleList:
         for tag in self.boundCon.keys():
             self.boundCon[tag].Xstep()
         # P-step
-        for tag in self.quarkCon.keys():
-            self.quarkCon[tag].Pstep()
-        for tag in self.boundCon.keys():
-            self.boundCon[tag].Pstep()
+        #for tag in self.quarkCon.keys():
+        #    self.quarkCon[tag].Pstep()
+        #for tag in self.boundCon.keys():
+        #    self.boundCon[tag].Pstep()
         
         # Update space partitions
         self.updateXPart()
@@ -313,27 +315,40 @@ class particleList:
         for i in range(self.conf['NXPart']):
             for j in range(self.conf['NXPart']):
                 for k in range(self.conf['NXPart']):
-                    targetList[(i+j+k)%self.conf['NThreads']].append([i,j,k])
-        threadList = []
+                    targetList[(i+(j*self.conf['NXPart'])+(k*(self.conf['NXPart']**2)))%self.conf['NThreads']].append([i,j,k])
         
-        #for i in range(len(targetList)):
-        #    print('TL'+str(i)+':',targetList[i])
-        #self.XPresCon = [[[[] for i in range(self.conf['NXPart'])] for j in range(self.conf['NXPart'])] for k in range(self.conf['NXPart'])]
-        
+        eventsRaw = []
+        result_queue = multiprocessing.Queue()
+        processList = []
         for i in range(self.conf['NThreads']):
-            thread = threading.Thread(target=self.getRE_worker,args=(targetList, i))
-            threadList.append(thread)
-            thread.start()
+            process = multiprocessing.Process(target=regenUpdate_worker, args=(result_queue, self, targetList[i], np.random.randint(2**32), i))
+            processList.append(process)
+            process.start()
+
+        while any(process.is_alive() for process in processList) or not result_queue.empty():
+            while not result_queue.empty():
+                eventsRaw.append(result_queue.get())
+        for process in processList:
+            process.join()
+        #print('Events:',events)
+
+        #threadList = []
         
-        for thread in threadList:
-            thread.join()
+        ######
+        #
+        #for i in range(self.conf['NThreads']):
+        #    thread = threading.Thread(target=self.getRE_worker,args=(targetList[i],))
+        #    threadList.append(thread)
+        #    thread.start()
+        #
+        #for thread in threadList:
+        #    thread.join()
 
         # Get events and manage conflicts
-
-        self.events = self.getChkdREvents()
-
+        self.events = self.checkREvents(eventsRaw)
+        
         for event in self.events.items():
-            self.recomEvent(event)
+            self.recomEvent(list(event))
 
 
         #print('R:',self.events)
@@ -526,13 +541,14 @@ class particleList:
             XPt = np.floor(qrk.pos*self.conf['NXPart']/self.conf['L']).astype(int)
             self.XParts[XPt[0]][XPt[1]][XPt[2]][tag] = qrk.anti
 
-    def getRE_worker(self,targetList,c):
-        for tg in targetList[c]:
+    def getRE_worker(self,targetList):
+        for tg in targetList:
             self.getRecomEvents(tg[0],tg[1],tg[2])
 
 
     # Return recombination events for for XParts[i][j][k]
     def getRecomEvents(self,i,j,k):
+        
         # Gets all  qrk.anti==0 qrks in partition ijk
         inTags = [tag for tag, ant in self.XParts[i][j][k].items() if ant==0]
         #Iterates over each box in neighborhood and collects all antiquark tags
@@ -618,6 +634,72 @@ class particleList:
         return len(self.Devents)
             
     
+    def getRecomEventsMP(self,i,j,k):
+        # Gets all  qrk.anti==0 qrks in partition ijk
+        inTags = [tag for tag, ant in self.XParts[i][j][k].items() if ant==0]
+        #Iterates over each box in neighborhood and collects all antiquark tags
+        parTags = [tag for t in (i-1,i,i+1) for u in (j-1,j,j+1) for v in (k-1,k,k+1) for tag, ant in self.XParts[t % self.conf['NXPart']][u % self.conf['NXPart']][v % self.conf['NXPart']].items() if ant==1]
+        # For each tag in XPart[i][j][k] get all valid pairs of quark-antiquark momentums and separations
+        xpPairs = {tagIn+tagPar:[self.quarkCon[tagIn].mom4, self.quarkCon[tagPar].mom4, self.quarkCon[tagIn].pos, self.quarkCon[tagPar].pos] for tagIn in inTags for tagPar in parTags}
+        # Then we need to boost all of these momentum pairs into p1 + p2
+
+        #  SKIPPED 
+
+        ### No Boost
+        pairtags = [pairtag for pairtag, xpP in xpPairs.items()]
+        inpVars = np.array([[np.linalg.norm(xpP[0][1:]-xpP[1][1:]),np.linalg.norm(xpP[2]-xpP[3])] for pairtag, xpP in xpPairs.items()])
+
+        if np.size(inpVars) == 0:
+            #self.XPresCon[i][j][k] = []
+            return []
+
+
+        #print('hey',inpVars)
+        #print('cat',inpVars[:,0])
+        #print('thing',self.rates['RGR']['1S']((inpVars[:,0],inpVars[:,1])))
+        #print("RGRres", self.rates['RGR']['1S']((inpVars[:,0],inpVars[:,1]))*self.conf['dt']-np.random.rand(len(pairtags)))
+
+
+        # roll recombination in each channel
+        # floor(rateFunc(xr,pr)*dt - R) + 1  with (random number)R in (0,1) <-- this should be 1 for a recombination and 0 otherwise
+        # RGR channel
+        RGRres = {st:np.floor(self.rates['RGR'][st]((inpVars[:,0],inpVars[:,1]))*self.conf['dt']-np.random.rand(len(pairtags))).astype(int)+1 for st in self.conf['StateList']}
+
+        RateRes = {'RGR':RGRres}
+
+
+        res = []
+        evTagKey = [[st, ch] for ch in ('RGR',) for st in RateRes[ch].keys()] # This tuple of tags should have the same order as in resLine
+        for l in range(len(pairtags)):
+            resLine = np.array([RateRes[st][l] for RateRes in (RGRres,) for st in RateRes.keys()])
+            if np.all(resLine == 0):
+                continue
+            else:
+                for m in range(len(evTagKey)):
+                    if resLine[m] == 1:
+                        res.append([pairtags[l],evTagKey[m]]) # Get state and channel for sampled events !!! This just takes the first one to avoid conflicts within the same pair 
+                        # But you should be able to order this so you always take the higher rate event (there should be some rate ordering for the same x,p pair)
+                        break
+
+                #res.append([pairtags[i],resLine])
+        return res  #This is a list with elements ['name1name2',[state, channel]]   
+    
+    def checkREvents(self, evIn):
+        events = {}
+        ColCheck = {}
+        for ev in evIn: 
+            if ev[0][:8] not in ColCheck.keys() and ev[0][8:] not in ColCheck.values():
+                ColCheck[ev[0][:8]] = ev[0][8:]
+                events[ev[0]] = ev[1] # add to event list
+            else:
+                
+                continue
+                # This is where conflicts will be handled but at first pass they will just be dropped !!!!!!!!!!!!!!!!!!! (This is roughly equivalent to how it worked 
+                # before with these just never getting rolled in the first place)
+        return events
+        #return [[tag,events[tag]] for tag in events.keys()]
+
+ 
     
     
     
@@ -630,8 +712,21 @@ class particleList:
     
     
     
-    
-    
+def regenUpdate_worker(queue, box, targetList, Rs, thN):
+    try:
+        np.random.seed(Rs)
+        results = []
+        for tg in targetList: # for each target cell in this process's targetList get the events in that cell
+            ret = box.getRecomEventsMP(tg[0],tg[1],tg[2])
+            for res in ret: # then for each event in that cell, add it to the result queue
+                #results.append(res)
+                queue.put(res)
+        return
+        #multiprocessing.current_process().terminate()
+    except Exception as e:
+        print(colr('Error',(200,0,0)),'in',colr('Thread'+str(thN),(150,150,50)),':',f"{e}")
+
+
     
     
     
