@@ -10,6 +10,8 @@ from interpolations import probBlock
 from config import stepClock
 from config import colr
 
+from hydro import hydroBac
+
 import threading
 import time
 
@@ -122,6 +124,7 @@ class particleList:
 
         self.rates = rates
         self.dists = dists
+        self.HB = hydroBac()
 
         quarksTemp = [quark(conf,anti=n) for i in range(conf['Nbb']) for n in (0,1)] # This is just for initializing quarks
         boundsTemp = [bound(conf) for i in range(conf['NY'])] # This is just for initializing bounds
@@ -562,7 +565,7 @@ class particleList:
         ### No Boost
         pairtags = [pairtag for pairtag, xpP in xpPairs.items()]
         inpVars = np.array([[np.linalg.norm(xpP[0][1:]-xpP[1][1:]),np.linalg.norm(xpP[2]-xpP[3])] for pairtag, xpP in xpPairs.items()])
-
+        print('inpVars:',inpVars)
         if np.size(inpVars) == 0:
             self.XPresCon[i][j][k] = []
             return
@@ -577,7 +580,7 @@ class particleList:
         # roll recombination in each channel
         # floor(rateFunc(xr,pr)*dt - R) + 1  with (random number)R in (0,1) <-- this should be 1 for a recombination and 0 otherwise
         # RGR channel
-        RGRres = {st:np.floor(self.rates['RGR'][st]((inpVars[:,0],inpVars[:,1]))*self.conf['dt']-np.random.rand(len(pairtags))).astype(int)+1 for st in self.conf['StateList']}
+        RGRres = {st:np.floor(self.rates['RGR'][st]((inpVars[:,1],inpVars[:,0]))*self.conf['dt']-np.random.rand(len(pairtags))).astype(int)+1 for st in self.conf['StateList']}
 
         RateRes = {'RGR':RGRres}
 
@@ -647,7 +650,9 @@ class particleList:
 
         ### No Boost
         pairtags = [pairtag for pairtag, xpP in xpPairs.items()]
-        inpVars = np.array([[np.linalg.norm(xpP[0][1:]-xpP[1][1:]),np.linalg.norm(xpP[2]-xpP[3])] for pairtag, xpP in xpPairs.items()])
+
+        p1p2x1x2_List = np.array([[xpP[0], xpP[1], xpP[2], xpP[3]] for pairtag, xpP in xpPairs.items()]) 
+        inpVars = np.array([[np.linalg.norm(xpP[0][1:]-xpP[1][1:]),self.pDist(xpP[2], xpP[3])] for pairtag, xpP in xpPairs.items()])
 
         if np.size(inpVars) == 0:
             #self.XPresCon[i][j][k] = []
@@ -663,7 +668,9 @@ class particleList:
         # roll recombination in each channel
         # floor(rateFunc(xr,pr)*dt - R) + 1  with (random number)R in (0,1) <-- this should be 1 for a recombination and 0 otherwise
         # RGR channel
+
         RGRres = {st:np.floor(self.rates['RGR'][st]((inpVars[:,0],inpVars[:,1]))*self.conf['dt']-np.random.rand(len(pairtags))).astype(int)+1 for st in self.conf['StateList']}
+        
 
         RateRes = {'RGR':RGRres}
 
@@ -699,6 +706,12 @@ class particleList:
         return events
         #return [[tag,events[tag]] for tag in events.keys()]
 
+   # min distance in the periodic box between two points
+    def pDist(self, x1, x2):
+        delta = np.abs(x1-x2)
+        return np.linalg.norm(np.minimum(delta, self.conf['L'] - delta))
+       
+
  
     
     
@@ -725,9 +738,6 @@ def regenUpdate_worker(queue, box, targetList, Rs, thN):
         #multiprocessing.current_process().terminate()
     except Exception as e:
         print(colr('Error',(200,0,0)),'in',colr('Thread'+str(thN),(150,150,50)),':',f"{e}")
-
-
-    
     
     
     

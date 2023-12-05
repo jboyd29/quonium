@@ -51,6 +51,18 @@ class probBlock:
         return None
 
 
+
+
+
+
+
+
+
+
+
+
+
+
 # Overlaps
 
 def OvLp(conf, q , state):
@@ -100,7 +112,7 @@ def RGRsum(x, pr, conf, state): # x-relative spearation pr-relaltive momentum
 def getRGRrate(conf, state):
     prVals = np.linspace(0,conf['prCut'],conf['NPts'])
     woZero = prVals[1:]
-    xVals = np.linspace(0,conf['L']*2,conf['NPts'])
+    xVals = np.linspace(0,conf['L']*2*(3**(1/2))/conf['NXPart'],conf['NPts'])
     result = RGRsum(xVals[:,None],woZero[None,:],conf,state)
     sampledPts = np.column_stack((np.linspace(0,0,conf['NPts']),result))
     if eval(conf['ExportRates']):

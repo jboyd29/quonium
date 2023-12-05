@@ -1,6 +1,10 @@
 # params
 # Parameter file
 
+#################################
+##### Simulation Parameters #####
+#################################
+
 # Box side length [GeV-1]
 L 10
 
@@ -8,10 +12,10 @@ L 10
 dt 0.1
 
 # Temperature [GeV]
-T 0.2
+T 0.8
 
 # Total number of simulation steps
-tFn 400
+tFn 50
 
 ### Initial occupations
 
@@ -19,52 +23,17 @@ tFn 400
 NY 1
 
 # Initial number of bb parirs
-Nbb 2000
+Nbb 1000
 
-### Particle Masses
-
-Mb 4.65
-
-# Bound state masses
-
-M1S 9.460
-
-M2S 10.023
-
-# Binding energies
-
-E1S 0.13
-
-E2S 0.723
-
-# Particle Cross-sections
-bsig 0.01
-Ysig 0.02
-
-#Channel
-
-Ch 0
-
-#Rate file
-
-rateFile bottom_rates_2d.tsv
-
-
-#Other Parameters
-
-alphaS 0.3
-
-CF 1.33333333333333333333
-
-NC 3
-
-gs 0.75
+##############################
+##### Simulation Options #####
+##############################
 
 # Energy cutoff for interpolations and sampling (as a number*Enl)
 ECut 20
 
-# Relative momentum cutoff for interpotaions and sampling (!!! No idea what this should be, function seems boring after this tho)
-prCut 20
+# Relative momentum cutoff for interpotaions and sampling 
+prCut 10
 
 # Number of sampled points for interpolations and sampling
 NPts 100
@@ -78,4 +47,61 @@ NXPart 5
 # Number of threads for multithreading
 NThreads 14
 
+# Hydro mode
+# 0 - Static (fluid flow velocity is zero everywhere)
+HydroMode 0
+
+# Hydro grid points (for static case)
+HPts 20
+
+
+
+
+
+##############################
+##### Physics Parameters #####
+##############################
+
+
+### Particle Masses
+
+#Bottom quark mass
+Mb 4.65
+
+# Bound state masses
+M1S 9.460
+M2S 10.023
+
+# Binding energies
+E1S 0.13
+E2S 0.723
+
+# Particle Cross-sections
+bsig 0.01
+Ysig 0.02
+
+# AlphaS
+alphaS 0.3
+
+#  CF = 4/3
+CF 1.33333333333333333333
+
+# Number of colors
+NC 3
+
+# gs
+gs 0.75
+
+
+### Even I don't know what these do anymore ###
+
+#Channel
+
+Ch 0
+
+#Rate file
+
+rateFile bottom_rates_2d.tsv
+
+#### DO NOT REMOVE!!! (breaks if you remove it) ####
 boop gleep

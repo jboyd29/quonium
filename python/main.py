@@ -52,10 +52,26 @@ for i in range(conf['tFn']):
 X = [line[0] for line in box.rec]
 Y = [line[1] for line in box.rec]
 
+
+
+
+plt.figure(figsize=plt.figaspect(0.25))
+
+plt.subplot(121)
 plt.plot(X,Y)
 plt.xlabel('t')
 plt.ylabel('Nb_bound/Nb_total')
-plt.title('Bound Fraction')
+plt.title('Hidden bottom fraction')
+
+plt.subplot(122)
+moms = box.getMoms()
+plt.hist(moms, bins=np.linspace(0,conf['prCut'],100))
+plt.xlabel('p')
+plt.ylabel('Count')
+plt.title('Quark momentum distribution')
+
+
+plt.tight_layout()
 plt.show()
 
 
