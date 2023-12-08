@@ -124,7 +124,7 @@ class particleList:
 
         self.rates = rates
         self.dists = dists
-        self.HB = hydroBac()
+        self.HB = hydroBac(conf)
 
         quarksTemp = [quark(conf,anti=n) for i in range(conf['Nbb']) for n in (0,1)] # This is just for initializing quarks
         boundsTemp = [bound(conf) for i in range(conf['NY'])] # This is just for initializing bounds
@@ -212,6 +212,8 @@ class particleList:
 
             #Collect probablities of different channels together
             pB = probBlock([RGRpBs],'')
+
+#26 to #7 - twistedrider Reply+4(4.5 hours)
             result = pB(np.random.uniform())
 
             if result != None:
@@ -646,14 +648,40 @@ class particleList:
         xpPairs = {tagIn+tagPar:[self.quarkCon[tagIn].mom4, self.quarkCon[tagPar].mom4, self.quarkCon[tagIn].pos, self.quarkCon[tagPar].pos] for tagIn in inTags for tagPar in parTags}
         # Then we need to boost all of these momentum pairs into p1 + p2
 
-        #  SKIPPED 
-
-        ### No Boost
+         
+        #print('XPpairs: ', xpPairs)
         pairtags = [pairtag for pairtag, xpP in xpPairs.items()]
+        
+        if len(pairtags) == 0:
+            return []
+        
+        Xs = np.array([[xpP[2], xpP[3]] for pairtag, xpP in xpPairs.items()]) 
+        Ps = np.array([[xpP[0], xpP[1]] for pairtag, xpP in xpPairs.items()]) # [p1,p2]
+        
+        #print('BOOST MATS:',self.allBoost(self.HB(Xs[:][0], self.time)))
+        # Boost to hydro cell frame
+        RecPosns = (Xs[:,0]+Xs[:,1])/2
+        HBoosted = [ np.einsum('ijk,ik->ij',self.allBoost(self.HB(RecPosns, self.time)),Ps[:,0]), np.einsum('ijk,ik->ij',self.allBoost(self.HB(RecPosns, self.time)),Ps[:,1]) ]  # [(boosted) p1, p2] 4vec p1 and p2
+        
+        #print('Xs',Xs)
+        #print('Ps',Ps)
+        #print('HBS',HBoosted[0])
+        # Boost to center of mass frame
+        Vcs = self.getVcell(HBoosted[0][:,1:]+HBoosted[1][:,1:])
+        #print('COMBO MEAL:',HBoosted[0][:,1:]+HBoosted[1][:,1:]  )
+        #print('Vcs:',Vcs)
+        CMBoosted = [np.einsum('ijk,ik->ij',self.allBoost(Vcs),HBoosted[0]), np.einsum('ijk,ik->ij',self.allBoost(Vcs),HBoosted[1])]
+ 
+        pRs = CMBoosted[0][:,1:]-CMBoosted[1][:,1:]
+        #print('prs:', pRs)
+        #print('Xs:',Xs[:,0].shape)
+        #print('Xr',self.pDist(Xs[:][0],Xs[:][1])  )
+        inpVars = np.array([self.pDist(Xs[:,0],Xs[:,1]), np.einsum('ij,ij->i', pRs, pRs)])
+        #print('inpVars.shape:',inpVars.shape)
 
-        p1p2x1x2_List = np.array([[xpP[0], xpP[1], xpP[2], xpP[3]] for pairtag, xpP in xpPairs.items()]) 
-        inpVars = np.array([[np.linalg.norm(xpP[0][1:]-xpP[1][1:]),self.pDist(xpP[2], xpP[3])] for pairtag, xpP in xpPairs.items()])
-
+        #inpVars = np.array([[np.linalg.norm(xpP[0][1:]-xpP[1][1:]),self.pDist(xpP[2], xpP[3])] for pairtag, xpP in xpPairs.items()])
+        #exit()
+        #print('inpVars',inpVars)
         if np.size(inpVars) == 0:
             #self.XPresCon[i][j][k] = []
             return []
@@ -669,7 +697,7 @@ class particleList:
         # floor(rateFunc(xr,pr)*dt - R) + 1  with (random number)R in (0,1) <-- this should be 1 for a recombination and 0 otherwise
         # RGR channel
 
-        RGRres = {st:np.floor(self.rates['RGR'][st]((inpVars[:,0],inpVars[:,1]))*self.conf['dt']-np.random.rand(len(pairtags))).astype(int)+1 for st in self.conf['StateList']}
+        RGRres = {st:np.floor(self.rates['RGR'][st]((inpVars[0],inpVars[1]))*self.conf['dt']-np.random.rand(len(pairtags))).astype(int)+1 for st in self.conf['StateList']}
         
 
         RateRes = {'RGR':RGRres}
@@ -708,13 +736,29 @@ class particleList:
 
    # min distance in the periodic box between two points
     def pDist(self, x1, x2):
-        delta = np.abs(x1-x2)
-        return np.linalg.norm(np.minimum(delta, self.conf['L'] - delta))
-       
+        delta = np.abs(x1 - x2)
+        periodic_delta = np.minimum(delta, self.conf['L'] - delta)
+        return np.linalg.norm(periodic_delta, axis=1)
+      
+    
 
+
+    def getVcell(self, pcm):
+        return pcm/np.sqrt(((2*self.conf['Mb'])**2) + np.einsum('ij,ij->i',pcm,pcm))[:,np.newaxis]
  
     
-    
+    def allBoost(self, v): # v is a vector of velocity vectors vi
+        vx, vy, vz = v.T # get the x y and z components of each vi
+        vM = np.linalg.norm(v, axis=1) # get vector of magnitudes of each vi
+        g = 1/np.sqrt(1 - (vM**2)) # gamma
+        vvT = np.einsum('ij,ik->ijk',v,v) # batched outer product of v and v
+        res = np.zeros((len(v),4,4)) # init container
+        res[:, 0, 0] = g # 00 elem set to gamma
+        #print(v.shape)
+        res[:, 0, 1:] = -g[:,np.newaxis]*v # 0j set to -g*v
+        res[:, 1:, 0] = -g[:,np.newaxis]*v # i0 to -g*v
+        res[:, 1:, 1:] = np.tile(np.eye(3), (len(v), 1, 1)) + (g[:,np.newaxis,np.newaxis]-np.ones((len(v),3,3)))*vvT/vM[:,np.newaxis,np.newaxis] # i-123 j-123 set to 1 - (g-1)vvT/vM
+        return res
     
     
     

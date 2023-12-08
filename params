@@ -12,10 +12,10 @@ L 10
 dt 0.1
 
 # Temperature [GeV]
-T 0.8
+T 0.2
 
 # Total number of simulation steps
-tFn 50
+tFn 100
 
 ### Initial occupations
 
@@ -23,7 +23,7 @@ tFn 50
 NY 1
 
 # Initial number of bb parirs
-Nbb 1000
+Nbb 10000
 
 ##############################
 ##### Simulation Options #####
@@ -33,7 +33,7 @@ Nbb 1000
 ECut 20
 
 # Relative momentum cutoff for interpotaions and sampling 
-prCut 10
+prCut 20
 
 # Number of sampled points for interpolations and sampling
 NPts 100
