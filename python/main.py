@@ -12,6 +12,12 @@ from particles import particleList
 from interpolations import rateMan
 from interpolations import sampMan
 
+from interpolations import calcClassExpec
+from interpolations import calcRelExpec
+
+import interpolations
+
+
 import matplotlib.pyplot as plt
 
 import multiprocessing
@@ -21,6 +27,7 @@ conf = config()
 conf['StateList'] = ['1S']
 conf.echoParams()
 
+stColMap = {'b':(0.923, 0.386, 0.209),'1S':(0.368,0.507,0.710),'2S':(0.881,0.611,0.142)}
 
 #box = particleList(conf)
 #for i in range(1000):
@@ -55,108 +62,38 @@ Y = [line[1] for line in box.rec]
 
 
 
-plt.figure(figsize=plt.figaspect(0.25))
+plt.figure(figsize=plt.figaspect(0.5))
 
-plt.subplot(121)
-plt.plot(X,Y)
-plt.xlabel('t')
+plt.subplot(221)
+plt.semilogy(X,Y)
+plt.axhline(y=calcClassExpec(conf), color='r', linestyle='--', label='Non-relativistic')
+plt.axhline(y=calcRelExpec(conf), color='g', linestyle='--', label='Relativistic')
+#plt.ylim(0.0001,1)
+plt.xlabel('t [GeV-1]')
 plt.ylabel('Nb_bound/Nb_total')
 plt.title('Hidden bottom fraction')
 
-plt.subplot(122)
-moms = box.getMoms()
-plt.hist(moms, bins=np.linspace(0,conf['prCut'],100))
-plt.xlabel('p')
-plt.ylabel('Count')
-plt.title('Quark momentum distribution')
+plt.subplot(222)
+plt.hist(box.getMoms(), bins=np.linspace(0,conf['prCut'],conf['NPts']), color = stColMap['b'])
+plt.plot(np.linspace(0,conf['prCut'],conf['NPts']),interpolations.getNMomDistPlot(conf,'b')*box.getNunbound()*conf['prCut']/conf['NPts'], color=tuple(x*0.7 for x in stColMap['b']), label='Therm '+'b-quark')
+for st in conf['StateList']:
+    plt.hist(box.getMomsB(st), bins=np.linspace(0,conf['prCut'],conf['NPts']), color=stColMap[st])
+    plt.plot(np.linspace(0,conf['prCut'],conf['NPts']),interpolations.getNMomDistPlot(conf, st)*box.getNbound(st)*conf['prCut']/conf['NPts'], color=tuple(x*0.7 for x in stColMap[st]), label='Therm '+st) 
 
+plt.xlabel('p [GeV]')
+plt.ylabel('Count')
+plt.legend()
+plt.title('Particle momentum distribution')
+
+#plt.subplot(224)
+#plt.plot(interpolations.getNMomDistPlot(conf,'b')*box.getNunbound(), color='b')
+#plt.xlabel('p')
+#plt.ylabel('Count')
+#plt.title('')
 
 plt.tight_layout()
 plt.show()
 
 
 exit()
-
-
-
-
-
-def runBox(box,i):
-    c=1
-    for i in range(conf['tFn']):
-        box.step()
-        if c%100==0:
-            print('B:',i,'  t:',round(box.time,3),'  HidF:',round(box.getOccupationRatio(),3))
-        box.recLine()
-    result_queue.put([box.rec,box.getMoms()])
-
-
-#boxes = [particleList(conf, Loc_rates, Loc_dists) for i in range(1)]
-#j=0
-#moms = []
-#for boxi in boxes:
-#    
-#    for i in range(conf['tFn']):
-#        boxi.step()
-#        boxi.recLine()
-#        #if boxi.time+0.001 % 1 <0.01:
-#        print('B:',j,' t:',boxi.time,)
-#    moms.append(boxi.getMoms())
-#    print('Box',j,'complete')
-#    j+=1
-
-
-NProc=10
-result_queue = multiprocessing.Queue()
-boxes = [particleList(conf, Loc_rates, Loc_dists) for i in range(NProc)]
-processes = []
-for i in range(NProc):
-    boxi = boxes[i]
-    process = multiprocessing.Process(target=runBox, args=(boxi,i))
-    processes.append(process)
-    process.start()
-
-for process in processes:
-    process.join()
-
-results = []
-while not result_queue.empty():
-    results.append(result_queue.get())
-recL=[item[0] for item in results]
-moms=[np.linalg.norm(boxL[1][i]) for boxL in results for i in range(len(boxL[1]))]
-
-
-tr = []
-for i in range(conf['tFn']):
-    res = []
-    for boxL in recL:
-        res.append(boxL[i])
-    tr.append(np.mean(np.array(res),axis=0))
-
-
-
-X = [line[0] for line in tr]
-Y = [line[1] for line in tr]
-
-
-plt.figure(figsize=plt.figaspect(0.25))
-
-plt.subplot(121)
-plt.plot(X,Y)
-plt.xlabel('t')
-plt.ylabel('Nb_bound/Nb_total  [AVG]')
-plt.title('Hidden bottom fraction')
-
-plt.subplot(122)
-moms = [box.getMoms() for box in boxes]
-moms = [item for sublist in moms for item in sublist]
-plt.hist(moms, bins=np.linspace(0,conf['prCut']/10,100))
-plt.xlabel('p')
-plt.ylabel('Count')
-plt.title('Quark momentum distribution')
-
-
-plt.tight_layout()
-plt.show()  
-
 

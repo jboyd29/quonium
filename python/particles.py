@@ -7,6 +7,8 @@ from interpolations import rateMan
 from interpolations import sampMan
 from interpolations import probBlock
 
+from interpolations import RGRsum2
+
 from config import stepClock
 from config import colr
 
@@ -29,22 +31,25 @@ def hash8():
     return '%08x' % np.random.randint(16**8)
 
 class quark:
-    def __init__(self, conf, anti=0):
+    def __init__(self, conf, anti=0, initPmag=1):
         self.conf = conf
         self.anti = anti
         self.name = hash8()
         # Initial positions are sampled randomly throughout the box
         self.pos = np.random.rand(3)*conf['L']
         # Inital momentums are sampled from a Boltzmann distribution
-        self.mom = np.random.normal(loc=0, scale=np.sqrt(conf['T']/conf['Mb']),size=3)
+        #self.mom = np.random.normal(loc=0, scale=np.sqrt(conf['T']/conf['Mb']),size=3)
+        # Initial momentums are sampled from a Boltzmann distributions
+        momD = np.random.randn(3)
+        self.mom = initPmag*momD/np.linalg.norm(momD)
         # Space partition
         self.XPart = np.floor(self.pos*conf['NXPart']/conf['L']).astype(int)
-        self.mom4 = np.insert(self.mom,0,np.array((np.dot(self.mom, self.mom)+(self.conf['Mb']**2))),axis=0)
+        self.mom4 = np.insert(self.mom,0,np.array(np.sqrt(np.dot(self.mom, self.mom)+(self.conf['Mb']**2))),axis=0)
     def Xstep(self):
         self.pos = (self.pos + (self.mom/np.sqrt((self.conf['Mb']**2)+np.dot(self.mom,self.mom)))*self.conf['dt'])%self.conf['L']
     def Pstep(self):
-        self.mom = self.mom*(1-0.001) #Drag
-        self.mom4 = np.insert(self.mom,0,np.array((np.dot(self.mom, self.mom)+(self.conf['Mb']**2))),axis=0) #Update mom4  
+        #self.mom = self.mom*(1-0.001) #Drag
+        self.mom4 = np.insert(self.mom,0,np.array(np.sqrt(np.dot(self.mom, self.mom)+(self.conf['Mb']**2))),axis=0) #Update mom4  
     def exchangeStep(self, partners): # partners = [partner_Xs, partner_Ps]
         partner_Xs = partners[0]
         partner_Ps = partners[1]        
@@ -74,7 +79,7 @@ class quark:
         #return self
 
 class bound:
-    def __init__(self, conf, quarks=None, state='1S', p=None):
+    def __init__(self, conf, quarks=None, state='1S', p=None, initPmag=1):
         self.conf = conf
         self.state = state
         if self.state == None:
@@ -83,7 +88,9 @@ class bound:
             # Initial positions are sampled randomly throughout the box
             self.pos = np.random.rand(3)*conf['L']
             # Inital momentums are sampled from a Boltzmann distribution
-            self.mom = np.random.normal(loc=0, scale=np.sqrt(conf['T']/conf['M'+self.state]),size=3)/100
+            momD = np.random.randn(3)
+            self.mom = initPmag*momD/np.linalg.norm(momD)
+            self.mom4 = np.insert(self.mom,0,np.array(np.sqrt(np.dot(self.mom, self.mom)+(self.conf['M'+self.state]**2))),axis=0)
             # Initialize constituent quarks
             self.quarks = [quark(conf),quark(conf,anti=1)]
             self.name = self.quarks[0].name + self.quarks[1].name
@@ -92,10 +99,12 @@ class bound:
             self.name = self.quarks[0].name+self.quarks[1].name
             self.pos = (quarks[0].pos+quarks[1].pos)/2 #Position set to center of mass
             self.mom = p #Momentum sent down by event sampler
+            self.mom4 = np.insert(self.mom,0,np.array(np.sqrt(np.dot(self.mom, self.mom)+(self.conf['M'+self.state]**2))),axis=0) 
     def Xstep(self):
         self.pos = (self.pos + (self.mom/np.sqrt((self.conf['M'+self.state]**2)+np.dot(self.mom,self.mom)))*self.conf['dt'])%self.conf['L']
     def Pstep(self):
-        self.mom = self.mom*(1-0.001) #tiny drag
+        #self.mom = self.mom*(1-0.001) #tiny drag
+        self.mom4 = np.insert(self.mom,0,np.array(np.sqrt(np.dot(self.mom, self.mom)+(self.conf['M'+self.state]**2))),axis=0)
     def exchangeStep(self): #CURRENTLY UNUSED
         # Here it would take the dissocation rate but for now ot will be random
         if np.random.uniform() < 0.005:
@@ -118,19 +127,20 @@ class particleList:
         self.conf = conf
         self.cl = stepClock(self.conf['tFn'])
         self.time = 0.0
-        self.quarks = [quark(conf,anti=n) for i in range(conf['Nbb']) for n in [0,1]]
-        self.bounds = [bound(conf) for i in range(conf['NY'])]
-        self.rec = []
 
         self.rates = rates
         self.dists = dists
         self.HB = hydroBac(conf)
 
-        quarksTemp = [quark(conf,anti=n) for i in range(conf['Nbb']) for n in (0,1)] # This is just for initializing quarks
-        boundsTemp = [bound(conf) for i in range(conf['NY'])] # This is just for initializing bounds
+        #self.quarks = [quark(conf,anti=n,initPmag=dists['Momentum']['b']()) for i in range(conf['Nbb']) for n in [0,1]]
+        #self.bounds = [bound(conf, initPmag=dists['Momentum']['1S']()) for i in range(conf['NY'])]
+        self.rec = []
+
+        
+        quarksTemp = [quark(conf, anti=n, initPmag=dists['Momentum']['b']()) for i in range(conf['Nbb']) for n in (0,1)] # This is just for initializing quarks
+        boundsTemp = [bound(conf, initPmag=dists['Momentum']['1S']()) for i in range(conf['NY'])] # This is just for initializing bounds
         self.quarkCon = {qrk.name:qrk for qrk in quarksTemp} # This contains the actual quark objects {tag:quarkObj}
         self.boundCon = {bnd.name:bnd for bnd in boundsTemp} # This contains the actual bound objects {tag:boundObj}
-
 
         #self.XParts = [[[{}]*self.conf['NXPart']]*self.conf['NXPart']]*self.conf['NXPart']
         self.XParts = [[[{} for i in range(conf['NXPart'])] for j in range(conf['NXPart'])] for k in range(conf['NXPart'])] # This is a list with 3 indexes that contains a dictionary 
@@ -138,7 +148,8 @@ class particleList:
         self.initXPart()
         self.XPresCon = [[[[] for i in range(self.conf['NXPart'])] for j in range(self.conf['NXPart'])] for k in range(self.conf['NXPart'])] # These are the containers in which the multithreaded recombination puts results
 
-        
+
+
     def getQuarkX(self):
         return [qrk.pos for qrk in self.quarks]
     def getQuarkP(self):
@@ -300,10 +311,10 @@ class particleList:
         for tag in self.boundCon.keys():
             self.boundCon[tag].Xstep()
         # P-step
-        #for tag in self.quarkCon.keys():
-        #    self.quarkCon[tag].Pstep()
-        #for tag in self.boundCon.keys():
-        #    self.boundCon[tag].Pstep()
+        for tag in self.quarkCon.keys():
+            self.quarkCon[tag].Pstep()
+        for tag in self.boundCon.keys():
+            self.boundCon[tag].Pstep()
         
         # Update space partitions
         self.updateXPart()
@@ -362,7 +373,7 @@ class particleList:
         
         #for tag in self.boundCon.keys():
          #   self.checkDissoc(tag)
-        self.Devents = self.getDissocEvs()
+        self.Devents = self.getDissocEvs2()
         self.doDissocEvs(self.Devents)
 
         #print('D:',self.Devents)
@@ -442,6 +453,34 @@ class particleList:
             res.append(roll)
         return res
 
+    def getDissocEvs2(self):
+        Fres = []
+        Scon = {}
+        for st in self.conf["StateList"]:
+            tags = [tag for tag in self.boundCon.keys() if self.boundCon[tag].state == st]
+            moms = np.array([self.boundCon[tag].mom4 for tag in self.boundCon.keys() if self.boundCon[tag].state == st ])
+            vs = np.einsum('i,ij->ij', 1/moms[:,0], moms[:,1:]) 
+            gams = 1/np.sqrt(1-np.einsum('ij,ij->i', vs, vs))
+            Scon[st] = [tags, gams]
+            #print('moms:',moms)
+        for st in Scon.keys():
+            RGAres = np.floor(self.rates['RGA'][st](Scon[st][1])*self.conf['dt']-np.random.rand(len(Scon[st][0]))).astype(int)+1
+            chresS = (RGAres,)
+            chKey = ('RGA',)
+            for i in range(len(RGAres)):
+                resLine = np.array([res[i] for res in chresS]) 
+                if np.all(resLine == 0):
+                    continue
+                else:
+                    for m in range(len(resLine)):
+                        if resLine[m] == 1:
+                            Fres.append([chKey[m],Scon[st][0][i]])
+                            break
+        return Fres
+
+
+
+
     def doDissocEvs(self, evs):
         for result in evs:
             if result == None:
@@ -477,47 +516,7 @@ class particleList:
                     #Do y channel
                     continue
 
-    # UNUSED
-    #This function gets a tag and checks AND does the dissociation
-    def checkDissoc(self, tag):
-        RGAprob = self.rates['RGA'][self.boundCon[tag].state]*self.conf['dt']
 
-        disspB = probBlock([probBlock(RGAprob,'RGA')],tag)
-
-        result = disspB(np.random.uniform())
-
-        if result == None:
-            return
-        else:
-            #print('tag:',tag)
-            #print('D:',result)
-            if result[0] == 'RGA':
-                resamp = True
-                st = self.boundCon[tag].state
-                while resamp:
-                    qtry = np.random.uniform(self.conf['E'+st],self.conf['E'+st]*self.conf['NPts']) 
-                    if np.random.uniform() < self.dists['RGA'][st](qtry):
-                        resamp = False
-                pmag = (qtry - self.conf['E'+st])/self.conf['M'+st]
-                CosThet = (np.random.uniform()*2)-1
-                SinThet = np.sqrt(1-(CosThet)**2)
-                Phi = np.random.uniform()*2*np.pi
-                   
-                qCosThet = (np.random.uniform()*2)-1
-                qSinThet = np.sqrt(1-(CosThet)**2)
-                qPhi = np.random.uniform()*2*np.pi
-
-
-                pr = np.array([pmag*SinThet*np.cos(Phi),pmag*SinThet*np.sin(Phi),pmag*CosThet])
-                pq = np.array([qtry*qSinThet*np.cos(qPhi),qtry*qSinThet*np.sin(qPhi),qtry*qCosThet])
-                self.dissociateBoundTag(tag,pr,pq)
-                return
-            elif result[1] == 'X':
-                #Do x channel
-                return
-            elif result[1] == 'Y':
-                #Do y channel
-                return
 
     def dissociateBoundTag(self, tag, pr, pq):
         #print('DBG0:',len(self.boundCon.keys()))
@@ -551,58 +550,7 @@ class particleList:
             self.getRecomEvents(tg[0],tg[1],tg[2])
 
 
-    # Return recombination events for for XParts[i][j][k]
-    def getRecomEvents(self,i,j,k):
-        
-        # Gets all  qrk.anti==0 qrks in partition ijk
-        inTags = [tag for tag, ant in self.XParts[i][j][k].items() if ant==0]
-        #Iterates over each box in neighborhood and collects all antiquark tags
-        parTags = [tag for t in (i-1,i,i+1) for u in (j-1,j,j+1) for v in (k-1,k,k+1) for tag, ant in self.XParts[t % self.conf['NXPart']][u % self.conf['NXPart']][v % self.conf['NXPart']].items() if ant==1]
-        # For each tag in XPart[i][j][k] get all valid pairs of quark-antiquark momentums and separations
-        xpPairs = {tagIn+tagPar:[self.quarkCon[tagIn].mom4, self.quarkCon[tagPar].mom4, self.quarkCon[tagIn].pos, self.quarkCon[tagPar].pos] for tagIn in inTags for tagPar in parTags}
-        # Then we need to boost all of these momentum pairs into p1 + p2
 
-        #  SKIPPED 
-
-        ### No Boost
-        pairtags = [pairtag for pairtag, xpP in xpPairs.items()]
-        inpVars = np.array([[np.linalg.norm(xpP[0][1:]-xpP[1][1:]),np.linalg.norm(xpP[2]-xpP[3])] for pairtag, xpP in xpPairs.items()])
-        print('inpVars:',inpVars)
-        if np.size(inpVars) == 0:
-            self.XPresCon[i][j][k] = []
-            return
-
-
-        #print('hey',inpVars)
-        #print('cat',inpVars[:,0])
-        #print('thing',self.rates['RGR']['1S']((inpVars[:,0],inpVars[:,1])))
-        #print("RGRres", self.rates['RGR']['1S']((inpVars[:,0],inpVars[:,1]))*self.conf['dt']-np.random.rand(len(pairtags)))
-
-
-        # roll recombination in each channel
-        # floor(rateFunc(xr,pr)*dt - R) + 1  with (random number)R in (0,1) <-- this should be 1 for a recombination and 0 otherwise
-        # RGR channel
-        RGRres = {st:np.floor(self.rates['RGR'][st]((inpVars[:,1],inpVars[:,0]))*self.conf['dt']-np.random.rand(len(pairtags))).astype(int)+1 for st in self.conf['StateList']}
-
-        RateRes = {'RGR':RGRres}
-
-
-        res = []
-        evTagKey = [[st, ch] for ch in ('RGR',) for st in RateRes[ch].keys()] # This tuple of tags should have the same order as in resLine
-        for l in range(len(pairtags)):
-            resLine = np.array([RateRes[st][l] for RateRes in (RGRres,) for st in RateRes.keys()])
-            if np.all(resLine == 0):
-                continue
-            else:
-                for m in range(len(evTagKey)):
-                    if resLine[m] == 1:
-                        res.append([pairtags[l],evTagKey[m]]) # Get state and channel for sampled events !!! This just takes the first one to avoid conflicts within the same pair 
-                        # But you should be able to order this so you always take the higher rate event (there should be some rate ordering for the same x,p pair)
-                        break
-
-                #res.append([pairtags[i],resLine])
-        #print('Loc:',(i,j,k))
-        self.XPresCon[i][j][k] = res  #This is a list with elements ['name1name2',[state, channel]]   
 
 
 
@@ -613,9 +561,11 @@ class particleList:
     def getOccupations(self):
         return [len(self.boundCon.keys()),len(self.quarkCon.keys())]
     def getOccupationRatio(self):
-        return 2*len(self.boundCon.keys())/(len(self.quarkCon.keys())+2*len(self.boundCon.keys()))
+        return len(self.boundCon.keys())/(self.conf['Nbb']+self.conf['NY'])
     def getMoms(self):
-        return [np.linalg.norm(qrk.mom) for qrk in self.quarks]  
+        return [np.linalg.norm(self.quarkCon[tag].mom) for tag in self.quarkCon.keys()]  
+    def getMomsB(self, st):
+        return [np.linalg.norm(self.boundCon[tag].mom) for tag in self.boundCon.keys() if self.boundCon[tag].state==st]
     def getMomDist(self):
         data = [np.norm(qrk.mom) for qrk in self.quarks]
         pBins = np.linspace(0,self.conf['pCut'],40)
@@ -623,6 +573,11 @@ class particleList:
         return hist
     def recLine(self):
         self.rec.append([self.time, self.getOccupationRatio()])
+
+    def getNunbound(self):
+        return len(self.quarkCon.keys())
+    def getNbound(self, st):
+        return sum([1 for tag in self.boundCon.keys() if self.boundCon[tag].state==st])
 
     def getNinXParts(self):
         tot = 0 
@@ -673,6 +628,8 @@ class particleList:
         CMBoosted = [np.einsum('ijk,ik->ij',self.allBoost(Vcs),HBoosted[0]), np.einsum('ijk,ik->ij',self.allBoost(Vcs),HBoosted[1])]
  
         pRs = CMBoosted[0][:,1:]-CMBoosted[1][:,1:]
+
+        #print('pRsm:',np.min(np.einsum('ij,ij->i', pRs, pRs)))
         #print('prs:', pRs)
         #print('Xs:',Xs[:,0].shape)
         #print('Xr',self.pDist(Xs[:][0],Xs[:][1])  )
@@ -697,7 +654,7 @@ class particleList:
         # floor(rateFunc(xr,pr)*dt - R) + 1  with (random number)R in (0,1) <-- this should be 1 for a recombination and 0 otherwise
         # RGR channel
 
-        RGRres = {st:np.floor(self.rates['RGR'][st]((inpVars[0],inpVars[1]))*self.conf['dt']-np.random.rand(len(pairtags))).astype(int)+1 for st in self.conf['StateList']}
+        RGRres = {st:np.floor(RGRsum2(inpVars[0],inpVars[1],np.linalg.norm(Vcs, axis=1),self.conf,st)*self.conf['dt']-np.random.rand(len(pairtags))).astype(int)+1 for st in self.conf['StateList']}
         
 
         RateRes = {'RGR':RGRres}

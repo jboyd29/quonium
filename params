@@ -6,16 +6,16 @@
 #################################
 
 # Box side length [GeV-1]
-L 10
+L 300
 
 # Simulation time step
 dt 0.1
 
 # Temperature [GeV]
-T 0.2
+T 0.3
 
 # Total number of simulation steps
-tFn 100
+tFn 2
 
 ### Initial occupations
 
@@ -23,7 +23,7 @@ tFn 100
 NY 1
 
 # Initial number of bb parirs
-Nbb 10000
+Nbb 10800
 
 ##############################
 ##### Simulation Options #####
@@ -33,7 +33,7 @@ Nbb 10000
 ECut 20
 
 # Relative momentum cutoff for interpotaions and sampling 
-prCut 20
+prCut 10
 
 # Number of sampled points for interpolations and sampling
 NPts 100
@@ -42,7 +42,7 @@ NPts 100
 ExportRates True
 
 # Number of space partitions in each direction (L/NXPart = space cutoff for 2 particle rate functions)
-NXPart 5
+NXPart 10
 
 # Number of threads for multithreading
 NThreads 14
