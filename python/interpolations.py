@@ -10,6 +10,8 @@ from scipy.interpolate import RegularGridInterpolator
 from scipy.interpolate import interp1d
 from scipy.optimize import fmin
 
+from scipy.special import kn
+
 
 
 
@@ -90,20 +92,27 @@ def RGAint(q, conf, state):  # state = '1S', '2S' ... this is just the integrand
 def RGAint2(q, gam, conf, st):
     vc = np.sqrt(1-(1/np.power(gam,2)))
     pr = np.sqrt(conf['M'+st]*(q-conf['E'+st])) 
-    return (2*conf['alphaS']*conf['M'+st]*conf['T']/(9*(np.pi**2)*vc*np.power(gam,2))) * np.power(q,2)*pr*np.log((1-np.exp(-gam*(1+vc)*q/conf['T']))/((1-np.exp(-gam*(1-vc)*q/conf['T'])))) * OvLp(conf, q, st) 
+    return (2*conf['alphaS']*conf['M'+st]*conf['T']/(9*(np.pi**2)*vc*np.power(gam,2))) * np.power(q,2)*pr*np.log((1-np.exp(-gam*(1+vc)*q/conf['T']))/(1-np.exp(-gam*(1-vc)*q/conf['T']))) * OvLp(conf, q, st) 
 
-def getRGArate2(conf, state):
-    gamms = np.linspace(1, conf['prCut'], conf['NPts'])
+def getRGArate2(conf, st):
+    ps = np.linspace(0.05,conf['prCut'],conf['NPts'])  #small offset, gam=0 -> rate->inf
+    vs = ps/np.sqrt(np.power(ps,2) + np.power(conf['M'+st],2)) 
+    gamms = 1/np.sqrt(1-np.power(vs,2)) 
     Rres = []
     for i in range(conf['NPts']):
-        if 0 == i:
-            Rres.append(0)
-        else:
-            res, error = quad(RGAint2, conf['E'+state], conf['E'+state]*conf['ECut'], args=(gamms[i], conf, state)) 
-            Rres.append(res)
+        res, error = quad(RGAint2, conf['E'+st], conf['E'+st]*conf['ECut'], args=(gamms[i], conf, st)) 
+        Rres.append(res)
+
+    #print('intepPoints \n gamms:',gamms,'\n Rres',Rres)
     interp = interp1d(gamms, np.array(Rres), kind='linear', fill_value='extrapolate') #Interpolation
     return interp
 
+def getRGAratePlot(conf,st,ps):
+    vs = ps/np.sqrt(np.power(ps,2) + np.power(conf['M'+st],2))
+    gams = 1/np.sqrt(1-np.power(vs,2))
+    #print('GAMMS:',gams)
+    rateVal = getRGArate2(conf,st)(gams)
+    return rateVal
 
 
 
@@ -164,28 +173,38 @@ def cEpint(px, py, pz, M, T):
     return np.exp(-(M + ((np.power(px,2)+ np.power(py,2) + np.power(pz,2))/(2*M)))/T)
 
 def calcClassExpec(conf):
-    res1, error1 = nquad(cEpint, [[0,100] for i in range(3)], args=(conf['Mb'],conf['T']))
+    res1, error1 = nquad(cEpint, [[-100,100] for i in range(3)], args=(conf['Mb'],conf['T']))
     Neqb = (6*np.power(conf['L'],3))*(1/np.power(np.pi*2,3))*res1
-    res2, error2 = nquad(cEpint, [[0,100] for i in range(3)], args=(conf['M1S'],conf['T']))
+    res2, error2 = nquad(cEpint, [[-100,100] for i in range(3)], args=(conf['M1S'],conf['T']))
     NeqY = (3*np.power(conf['L'],3))*(1/np.power(np.pi*2,3))*res2
     fug = (-Neqb+np.sqrt(np.power(Neqb,2)-(4*NeqY*(-(conf['Nbb']+conf['NY'])))))/(2*NeqY)
-    print('cNeqb:',Neqb)
-    print('cNeqY:',NeqY)
-
+    #print('cNeqb:',Neqb)
+    #print('cNeqY:',NeqY)
+    print('nonrel-Nhid/Ntot:',NeqY*np.power(fug,2)/((NeqY*np.power(fug,2))+(Neqb*fug)) )
     return NeqY*np.power(fug,2)/((NeqY*np.power(fug,2))+(Neqb*fug))
 
 def calcRelExpec(conf):
-    res1, error1 = nquad(rEpint, [[0,100] for i in range(3)], args=(conf['Mb'],conf['T']))
+    res1, error1 = nquad(rEpint, [[-100,100] for i in range(3)], args=(conf['Mb'],conf['T']))
     Neqb = (6*np.power(conf['L'],3))*(1/np.power(np.pi*2,3))*res1
-    res2, error2 = nquad(rEpint, [[0,100] for i in range(3)], args=(conf['M1S'],conf['T']))
+    res2, error2 = nquad(rEpint, [[-100,100] for i in range(3)], args=(conf['M1S'],conf['T']))
     NeqY = (3*np.power(conf['L'],3))*(1/np.power(np.pi*2,3))*res2
     fug = (-Neqb+np.sqrt(np.power(Neqb,2)-(4*NeqY*(-(conf['Nbb']+conf['NY'])))))/(2*NeqY)
-    print('rNeqb:',Neqb)
-    print('rNeqY:',NeqY)
+    #print('rNeqb:',Neqb)
+    #print('rNeqY:',NeqY)
     return NeqY*np.power(fug,2)/((NeqY*np.power(fug,2))+(Neqb*fug))
 
+def calcRelExpec2(conf):
+    Neqb = (6*np.power(conf['L'],3))*(1/(np.power(np.pi,2)*2))*np.power(conf['Mb'],2)*conf['T']*kn(2,conf['Mb']/conf['T'])
+    NeqY = (3*np.power(conf['L'],3))*(1/(np.power(np.pi,2)*2))*np.power(conf['M1S'],2)*conf['T']*kn(2,conf['M1S']/conf['T']) ##################!!!!!!!!!!!!!! SIN
+    fug = (-Neqb+np.sqrt(np.power(Neqb,2)-(4*NeqY*(-(conf['Nbb']+conf['NY'])))))/(2*NeqY)
+    #print('rNeqb:',Neqb)
+    #print('rNeqY:',NeqY)
+    print('rel-Nhid/Ntot:',NeqY*np.power(fug,2)/((NeqY*np.power(fug,2))+(Neqb*fug)) )
+    return NeqY*np.power(fug,2)/((NeqY*np.power(fug,2))+(Neqb*fug))
+
+
 def pMagDist(p, conf, st): # Momentum distribution
-    return np.exp(-np.sqrt(np.power(conf['M'+st],2)+np.power(p,2))/conf['T'])
+    return np.power(p,2)*np.exp(-np.sqrt(np.power(conf['M'+st],2)+np.power(p,2))/conf['T'])
 def getMomDist(conf, st):
     NC, _ = quad(pMagDist, 0, conf['prCut'], args=(conf, st)) #Normalization constant
     pPts = np.linspace(0,conf['prCut'],conf['NPts']) #"X"-points
@@ -200,6 +219,7 @@ def getMomDist(conf, st):
 def getNMomDistPlot(conf, st):
     NC, _ = quad(pMagDist, 0, conf['prCut'], args=(conf, st)) #Normalization constant
     return pMagDist(np.linspace(0,conf['prCut'],conf['NPts']), conf, st)/NC
+
 
 
 # RateMan

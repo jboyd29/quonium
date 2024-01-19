@@ -136,6 +136,10 @@ class particleList:
         #self.bounds = [bound(conf, initPmag=dists['Momentum']['1S']()) for i in range(conf['NY'])]
         self.rec = []
 
+
+        self.recDump = {} #Container for various debug outputs
+        self.recDump['RGArateSampDist'] = []
+
         
         quarksTemp = [quark(conf, anti=n, initPmag=dists['Momentum']['b']()) for i in range(conf['Nbb']) for n in (0,1)] # This is just for initializing quarks
         boundsTemp = [bound(conf, initPmag=dists['Momentum']['1S']()) for i in range(conf['NY'])] # This is just for initializing bounds
@@ -342,6 +346,8 @@ class particleList:
             process.start()
 
         while any(process.is_alive() for process in processList) or not result_queue.empty():
+            #if len(processList)!=0:
+                #print('remaining:',processList)
             while not result_queue.empty():
                 eventsRaw.append(result_queue.get())
         for process in processList:
@@ -463,8 +469,12 @@ class particleList:
             gams = 1/np.sqrt(1-np.einsum('ij,ij->i', vs, vs))
             Scon[st] = [tags, gams]
             #print('moms:',moms)
+        # Distribution info
+        
         for st in Scon.keys():
             RGAres = np.floor(self.rates['RGA'][st](Scon[st][1])*self.conf['dt']-np.random.rand(len(Scon[st][0]))).astype(int)+1
+            # Sampled rate distribution
+            self.recDump["RGArateSampDist"] = self.rates['RGA'][st](Scon[st][1]) 
             chresS = (RGAres,)
             chKey = ('RGA',)
             for i in range(len(RGAres)):
@@ -609,15 +619,15 @@ class particleList:
         
         if len(pairtags) == 0:
             return []
-        
         Xs = np.array([[xpP[2], xpP[3]] for pairtag, xpP in xpPairs.items()]) 
         Ps = np.array([[xpP[0], xpP[1]] for pairtag, xpP in xpPairs.items()]) # [p1,p2]
         
         #print('BOOST MATS:',self.allBoost(self.HB(Xs[:][0], self.time)))
         # Boost to hydro cell frame
-        RecPosns = (Xs[:,0]+Xs[:,1])/2
+        RecPosns = (Xs[:,0]+Xs[:,1])/2 ### TELEPORTATION ISSUE HERE 
         HBoosted = [ np.einsum('ijk,ik->ij',self.allBoost(self.HB(RecPosns, self.time)),Ps[:,0]), np.einsum('ijk,ik->ij',self.allBoost(self.HB(RecPosns, self.time)),Ps[:,1]) ]  # [(boosted) p1, p2] 4vec p1 and p2
-        
+        #HBoosted = [Ps[:,0],Ps[:,1]]
+
         #print('Xs',Xs)
         #print('Ps',Ps)
         #print('HBS',HBoosted[0])
@@ -626,9 +636,7 @@ class particleList:
         #print('COMBO MEAL:',HBoosted[0][:,1:]+HBoosted[1][:,1:]  )
         #print('Vcs:',Vcs)
         CMBoosted = [np.einsum('ijk,ik->ij',self.allBoost(Vcs),HBoosted[0]), np.einsum('ijk,ik->ij',self.allBoost(Vcs),HBoosted[1])]
- 
         pRs = CMBoosted[0][:,1:]-CMBoosted[1][:,1:]
-
         #print('pRsm:',np.min(np.einsum('ij,ij->i', pRs, pRs)))
         #print('prs:', pRs)
         #print('Xs:',Xs[:,0].shape)
@@ -658,7 +666,6 @@ class particleList:
         
 
         RateRes = {'RGR':RGRres}
-
 
         res = []
         evTagKey = [[st, ch] for ch in ('RGR',) for st in RateRes[ch].keys()] # This tuple of tags should have the same order as in resLine
@@ -704,16 +711,18 @@ class particleList:
         return pcm/np.sqrt(((2*self.conf['Mb'])**2) + np.einsum('ij,ij->i',pcm,pcm))[:,np.newaxis]
  
     
-    def allBoost(self, v): # v is a vector of velocity vectors vi
+    def allBoost(self, v): # v is a vector of velocity vectors vi 
         vx, vy, vz = v.T # get the x y and z components of each vi
-        vM = np.linalg.norm(v, axis=1) # get vector of magnitudes of each vi
+        vM = np.linalg.norm(v, axis=1) # get vector of magnitudes of each velocity
         g = 1/np.sqrt(1 - (vM**2)) # gamma
-        vvT = np.einsum('ij,ik->ijk',v,v) # batched outer product of v and v
-        res = np.zeros((len(v),4,4)) # init container
+        vvT = np.einsum('ij,ik->ijk',v,v) # batched outer product of v and velocity
+        res = np.zeros((len(v),4,4)) # init containers
         res[:, 0, 0] = g # 00 elem set to gamma
         #print(v.shape)
         res[:, 0, 1:] = -g[:,np.newaxis]*v # 0j set to -g*v
-        res[:, 1:, 0] = -g[:,np.newaxis]*v # i0 to -g*v
+        res[:, 1:, 0] = -g[:,np.newaxis]*v # i0 to -g*v 
+        #print('v:',v)
+        #print(len(v))
         res[:, 1:, 1:] = np.tile(np.eye(3), (len(v), 1, 1)) + (g[:,np.newaxis,np.newaxis]-np.ones((len(v),3,3)))*vvT/vM[:,np.newaxis,np.newaxis] # i-123 j-123 set to 1 - (g-1)vvT/vM
         return res
     
@@ -731,10 +740,12 @@ def regenUpdate_worker(queue, box, targetList, Rs, thN):
         np.random.seed(Rs)
         results = []
         for tg in targetList: # for each target cell in this process's targetList get the events in that cell
+            #print('Thread:',thN,' target:',tg)
             ret = box.getRecomEventsMP(tg[0],tg[1],tg[2])
             for res in ret: # then for each event in that cell, add it to the result queue
                 #results.append(res)
                 queue.put(res)
+        #print(thN,' All fetched')
         return
         #multiprocessing.current_process().terminate()
     except Exception as e:

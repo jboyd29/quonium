@@ -13,7 +13,9 @@ from interpolations import rateMan
 from interpolations import sampMan
 
 from interpolations import calcClassExpec
-from interpolations import calcRelExpec
+from interpolations import calcRelExpec2
+
+from interpolations import getRGAratePlot
 
 import interpolations
 
@@ -67,17 +69,17 @@ plt.figure(figsize=plt.figaspect(0.5))
 plt.subplot(221)
 plt.semilogy(X,Y)
 plt.axhline(y=calcClassExpec(conf), color='r', linestyle='--', label='Non-relativistic')
-plt.axhline(y=calcRelExpec(conf), color='g', linestyle='--', label='Relativistic')
+plt.axhline(y=calcRelExpec2(conf), color='g', linestyle='--', label='Relativistic')
 #plt.ylim(0.0001,1)
 plt.xlabel('t [GeV-1]')
 plt.ylabel('Nb_bound/Nb_total')
 plt.title('Hidden bottom fraction')
 
 plt.subplot(222)
-plt.hist(box.getMoms(), bins=np.linspace(0,conf['prCut'],conf['NPts']), color = stColMap['b'])
+plt.hist(box.getMoms(), bins=np.linspace(0,conf['prCut'],conf['NPts']), color = stColMap['b'], alpha=0.7)
 plt.plot(np.linspace(0,conf['prCut'],conf['NPts']),interpolations.getNMomDistPlot(conf,'b')*box.getNunbound()*conf['prCut']/conf['NPts'], color=tuple(x*0.7 for x in stColMap['b']), label='Therm '+'b-quark')
 for st in conf['StateList']:
-    plt.hist(box.getMomsB(st), bins=np.linspace(0,conf['prCut'],conf['NPts']), color=stColMap[st])
+    plt.hist(box.getMomsB(st), bins=np.linspace(0,conf['prCut'],conf['NPts']), color=stColMap[st], alpha=0.7)
     plt.plot(np.linspace(0,conf['prCut'],conf['NPts']),interpolations.getNMomDistPlot(conf, st)*box.getNbound(st)*conf['prCut']/conf['NPts'], color=tuple(x*0.7 for x in stColMap[st]), label='Therm '+st) 
 
 plt.xlabel('p [GeV]')
@@ -85,11 +87,13 @@ plt.ylabel('Count')
 plt.legend()
 plt.title('Particle momentum distribution')
 
-#plt.subplot(224)
-#plt.plot(interpolations.getNMomDistPlot(conf,'b')*box.getNunbound(), color='b')
-#plt.xlabel('p')
-#plt.ylabel('Count')
-#plt.title('')
+sampPs = np.linspace(0,conf["prCut"],conf["NPts"]) 
+plt.subplot(224)
+for st in conf['StateList']:
+    plt.plot(sampPs, getRGAratePlot(conf,st,sampPs), color=stColMap[st])
+plt.xlabel('p')
+plt.ylabel('Rate')
+plt.title('Momentum dependent marginal rates')
 
 plt.tight_layout()
 plt.show()
