@@ -62,6 +62,8 @@ X = [line[0] for line in box.rec]
 Y = [line[1] for line in box.rec]
 
 
+# Write hidden fraction result to file
+np.savetxt('../export/HidFrac.tsv', np.array(box.rec), delimiter='\t', fmt='%.8f')
 
 
 plt.figure(figsize=plt.figaspect(0.5))

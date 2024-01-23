@@ -40,8 +40,13 @@ class quark:
         # Inital momentums are sampled from a Boltzmann distribution
         #self.mom = np.random.normal(loc=0, scale=np.sqrt(conf['T']/conf['Mb']),size=3)
         # Initial momentums are sampled from a Boltzmann distributions
-        momD = np.random.randn(3)
-        self.mom = initPmag*momD/np.linalg.norm(momD)
+        if 0 == conf['pSampleType']: #Thermal sampling
+            momD = np.random.randn(3)
+            self.mom = initPmag*momD/np.linalg.norm(momD)
+        elif 1 == conf['pSampleType']: #Uniform sampling from pi=0 -> pi=conf["UniPMax"]
+            self.mom = np.random.random(3)*conf['UniPMax']
+        elif 2 == conf['pSampleType']:
+            self.mom = np.array([0,0,conf['UniPMax']])
         # Space partition
         self.XPart = np.floor(self.pos*conf['NXPart']/conf['L']).astype(int)
         self.mom4 = np.insert(self.mom,0,np.array(np.sqrt(np.dot(self.mom, self.mom)+(self.conf['Mb']**2))),axis=0)
@@ -88,8 +93,13 @@ class bound:
             # Initial positions are sampled randomly throughout the box
             self.pos = np.random.rand(3)*conf['L']
             # Inital momentums are sampled from a Boltzmann distribution
-            momD = np.random.randn(3)
-            self.mom = initPmag*momD/np.linalg.norm(momD)
+            if 0 == conf['pSampleType']: #Thermal sampling
+                momD = np.random.randn(3)
+                self.mom = initPmag*momD/np.linalg.norm(momD)
+            elif 1 == conf['pSampleType']: #Uniform sampling from pi=0 -> pi=conf["UniPMax"]
+                self.mom = np.random.random(3)*conf['UniPMax']
+            elif 2 == conf['pSampleType']:
+                self.mom = np.array([0,0,conf['UniPMax']])
             self.mom4 = np.insert(self.mom,0,np.array(np.sqrt(np.dot(self.mom, self.mom)+(self.conf['M'+self.state]**2))),axis=0)
             # Initialize constituent quarks
             self.quarks = [quark(conf),quark(conf,anti=1)]
