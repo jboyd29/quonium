@@ -70,9 +70,9 @@ class probBlock:
 # Overlaps
 
 def OvLp(conf, q , state):
-    pr = np.sqrt(conf['M'+state]*(q-conf['E'+state]))
+    pr = np.sqrt(conf['M'+'b']*(q-conf['E'+state]))
     #eta = conf['alphaS']*conf['M'+state]/(4*conf['NC']*pr)
-    aB = 2/(conf['alphaS']*conf['CF']*conf['M'+state])
+    aB = 2/(conf["alphaS"]*conf['CF']*conf['M'+'b'])   #Hardcoded alphaS
     #print('etaM:',np.max(eta))
     if state == '1S':
         #return ( ((2**9)*(np.pi**2)*(eta)*(np.power(aB,7))*(np.power(pr,2))*(1+np.power(eta,2))*np.power(2+eta*aB*pr,2))  /  ((np.power(1+(aB**2)*np.power(pr,2),6))*(np.exp(2*np.pi*eta)-1)) ) * np.exp(4*eta*np.arctan(aB*pr))
@@ -91,8 +91,8 @@ def RGAint(q, conf, state):  # state = '1S', '2S' ... this is just the integrand
 
 def RGAint2(q, gam, conf, st):
     vc = np.sqrt(1-(1/np.power(gam,2)))
-    pr = np.sqrt(conf['M'+st]*(q-conf['E'+st])) 
-    return (2*conf['alphaS']*conf['M'+st]*conf['T']/(9*(np.pi**2)*vc*np.power(gam,2))) * np.power(q,2)*pr*np.log((1-np.exp(-gam*(1+vc)*q/conf['T']))/(1-np.exp(-gam*(1-vc)*q/conf['T']))) * OvLp(conf, q, st) 
+    pr = np.sqrt(conf['M'+'b']*(q-conf['E'+st])) 
+    return (2*conf['alphaS']*conf['M'+'b']*conf['T']/(9*(np.pi**2)*vc*np.power(gam,2))) * np.power(q,2)*pr*np.log((1-np.exp(-gam*(1+vc)*q/conf['T']))/(1-np.exp(-gam*(1-vc)*q/conf['T']))) * OvLp(conf, q, st) 
 
 def getRGArate2(conf, st):
     ps = np.linspace(0.05,conf['prCut'],conf['NPts'])  #small offset, gam=0 -> rate->inf
@@ -141,9 +141,9 @@ def RGRsum(x, pr, conf, state): # x-relative spearation pr-relaltive momentum
     aB = 2/(conf['alphaS']*conf['CF']*conf['M'+state]) 
     return (conf['gs']/(conf['NC']**2)) * ( np.exp(-(np.power(x,2))/(2*(aB**2))) / ((2*np.pi*(aB**2))**(3/2)) ) * (8/9)*(conf['alphaS'])*np.power(conf['E'+state]+((np.power(pr,2))/conf['M'+state]),3) * (2+(2/(np.exp((conf["E"+state]+(np.power(pr,2)/conf["M"+state]))/conf["T"])+1))) * OvLp(conf,conf['E'+state]+((np.power(pr,2))/conf['M'+state]), state)
 
-def RGRsum2(x, pr, vcm, conf, state):
-    aB = 2/(conf['alphaS']*conf['CF']*conf['M'+state])
-    q = conf['E'+state]+((np.power(pr,2))/conf['M'+state])
+def RGRsum2(x, pr, vcm, conf, state): # <- This one is used in sim
+    aB = 2/(conf['alphaS']*conf['CF']*conf['M'+'b'])
+    q = conf['E'+state]+((np.power(pr,2))/conf['M'+'b'])
     g = 1/np.sqrt(1-np.power(vcm,2))
     return (conf['gs']/(conf['NC']**2)) * ( np.exp(-(np.power(x,2))/(2*(aB**2))) / ((2*np.pi*(aB**2))**(3/2)) ) * (8/9)*(conf['alphaS'])*np.power(q,3) * (2+(conf['T']/(g*vcm*q))*np.log((1-np.exp(-g*(1+vcm)*q/conf['T']))/((1-np.exp(-g*(1-vcm)*q/conf['T']))))) * OvLp(conf, q, state)
 
@@ -220,6 +220,20 @@ def getNMomDistPlot(conf, st):
     NC, _ = quad(pMagDist, 0, conf['prCut'], args=(conf, st)) #Normalization constant
     return pMagDist(np.linspace(0,conf['prCut'],conf['NPts']), conf, st)/NC
 
+
+
+def binRGRdat(conf, dat):
+    binEdges = np.linspace(0,conf['prCut'],conf['NPts']+1)
+    binned = [[] for i in range(conf['NPts'])]
+    for itm in dat:
+        binned[np.floor(conf['NPts']*itm[0]/conf['prCut']).astype(int)].append(itm[1])
+    res = []
+    for i in range(len(binned)):
+        if binned[i] == []:
+            res.append([(binEdges[i]+binEdges[i+1])/2, 0, 0])
+        else:
+            res.append([(binEdges[i]+binEdges[i+1])/2, np.mean(binned[i]), np.std(binned[i])/np.sqrt(len(binned[i]))])
+    return np.array(res)
 
 
 # RateMan

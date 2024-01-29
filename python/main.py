@@ -68,7 +68,7 @@ np.savetxt('../export/HidFrac.tsv', np.array(box.rec), delimiter='\t', fmt='%.8f
 
 plt.figure(figsize=plt.figaspect(0.5))
 
-plt.subplot(221)
+plt.subplot(321)
 plt.semilogy(X,Y)
 plt.axhline(y=calcClassExpec(conf), color='r', linestyle='--', label='Non-relativistic')
 plt.axhline(y=calcRelExpec2(conf), color='g', linestyle='--', label='Relativistic')
@@ -77,7 +77,7 @@ plt.xlabel('t [GeV-1]')
 plt.ylabel('Nb_bound/Nb_total')
 plt.title('Hidden bottom fraction')
 
-plt.subplot(222)
+plt.subplot(322)
 plt.hist(box.getMoms(), bins=np.linspace(0,conf['prCut'],conf['NPts']), color = stColMap['b'], alpha=0.7)
 plt.plot(np.linspace(0,conf['prCut'],conf['NPts']),interpolations.getNMomDistPlot(conf,'b')*box.getNunbound()*conf['prCut']/conf['NPts'], color=tuple(x*0.7 for x in stColMap['b']), label='Therm '+'b-quark')
 for st in conf['StateList']:
@@ -90,12 +90,22 @@ plt.legend()
 plt.title('Particle momentum distribution')
 
 sampPs = np.linspace(0,conf["prCut"],conf["NPts"]) 
-plt.subplot(224)
+plt.subplot(324)
 for st in conf['StateList']:
     plt.plot(sampPs, getRGAratePlot(conf,st,sampPs), color=stColMap[st])
 plt.xlabel('p')
 plt.ylabel('Rate')
-plt.title('Momentum dependent marginal rates')
+plt.title('Momentum dependent marginal dissociation rates')
+
+RGRp1SDat = interpolations.binRGRdat(conf,box.recDump['RGRrateP1S'])
+print('RGRdat shape:',RGRp1SDat.shape)
+plt.subplot(326)
+plt.plot(RGRp1SDat[:,0],RGRp1SDat[:,1], label='RGR-1S', color = stColMap['b'])
+plt.fill_between(RGRp1SDat[:,0], (RGRp1SDat[:,1]-(RGRp1SDat[:,2]*3)), (RGRp1SDat[:,1]+(RGRp1SDat[:,2]*3)), color=stColMap['b'], alpha=0.7)
+plt.xlabel('p')
+plt.ylabel('Rate')
+plt.title('Momentum dependent marginal regeneration rates')
+
 
 plt.tight_layout()
 plt.show()

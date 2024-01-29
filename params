@@ -15,15 +15,15 @@ dt 0.1
 T 0.3
 
 # Total number of simulation steps
-tFn 2000
+tFn 0
 
 ### Initial occupations
 
 # Initial number of bound states
-NY 2000
+NY 1
 
 # Initial number of bb parirs
-Nbb 0
+Nbb 60000
 
 ##############################
 ##### Simulation Options #####
@@ -44,7 +44,7 @@ ECut 20
 prCut 12
 
 # Number of sampled points for interpolations and sampling
-NPts 500
+NPts 100
 
 # Export points sampled for rate interpolations
 ExportRates True
@@ -64,6 +64,11 @@ HPts 20
 
 
 
+# Switch to turn on/off regeneration step
+doRecom 1
+
+# Switch to turn on/off dissociation step
+doDisso 0
 
 
 ##############################
@@ -77,11 +82,11 @@ HPts 20
 Mb 4.65
 
 # Bound state masses
-M1S 9.46
+M1S 9.032
 M2S 10.023
 
 # Binding energies
-E1S 0.168
+E1S 0.067
 E2S 0.723
 
 # Particle Cross-sections
