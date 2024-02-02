@@ -9,21 +9,21 @@
 L 50
 
 # Simulation time step
-dt 0.1
+dt 2.0
 
 # Temperature [GeV]
 T 0.3
 
 # Total number of simulation steps
-tFn 0
+tFn 100
 
 ### Initial occupations
 
 # Initial number of bound states
-NY 1
+NY 1000
 
 # Initial number of bb parirs
-Nbb 60000
+Nbb 1
 
 ##############################
 ##### Simulation Options #####
@@ -33,8 +33,10 @@ Nbb 60000
 ## 0 = BoltzmannDist(T,Mi)
 ## 1 = UniformDist(0->UniPMax)
 ## 2 = Set - set mom to UniPMax * z^
+## 3 = Gaussian mu = UniPMax, sig = pSampSig
 pSampleType 0
 UniPMax 10
+pSampSig 0.2
 
 
 # Energy cutoff for interpolations and sampling (as a number*Enl)
@@ -65,10 +67,10 @@ HPts 20
 
 
 # Switch to turn on/off regeneration step
-doRecom 1
+doRecom 0
 
 # Switch to turn on/off dissociation step
-doDisso 0
+doDisso 1
 
 
 ##############################

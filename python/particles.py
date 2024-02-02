@@ -47,6 +47,9 @@ class quark:
             self.mom = np.random.random(3)*conf['UniPMax']
         elif 2 == conf['pSampleType']:
             self.mom = np.array([0,0,conf['UniPMax']])
+        elif 3 == conf['pSampleType']:
+            momD = np.random.randn(3)
+            self.mom = np.random.normal(loc=conf['UniPMax'], scale=conf['pSampSig'])*momD/np.linalg.norm(momD)  
         # Space partition
         self.XPart = np.floor(self.pos*conf['NXPart']/conf['L']).astype(int)
         self.mom4 = np.insert(self.mom,0,np.array(np.sqrt(np.dot(self.mom, self.mom)+(self.conf['Mb']**2))),axis=0)
@@ -100,6 +103,9 @@ class bound:
                 self.mom = np.random.random(3)*conf['UniPMax']
             elif 2 == conf['pSampleType']:
                 self.mom = np.array([0,0,conf['UniPMax']])
+            elif 3 == conf['pSampleType']:
+                momD = np.random.randn(3)
+                self.mom = np.random.normal(loc=conf['UniPMax'], scale=conf['pSampSig'])*momD/np.linalg.norm(momD)
             self.mom4 = np.insert(self.mom,0,np.array(np.sqrt(np.dot(self.mom, self.mom)+(self.conf['M'+self.state]**2))),axis=0)
             # Initialize constituent quarks
             self.quarks = [quark(conf),quark(conf,anti=1)]
