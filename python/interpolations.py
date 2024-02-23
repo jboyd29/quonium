@@ -95,7 +95,7 @@ def RGAint2(q, gam, conf, st):
     return (2*conf['alphaS']*conf['M'+'b']*conf['T']/(9*(np.pi**2)*vc*np.power(gam,2))) * np.power(q,2)*pr*np.log((1-np.exp(-gam*(1+vc)*q/conf['T']))/(1-np.exp(-gam*(1-vc)*q/conf['T']))) * OvLp(conf, q, st) 
 
 def getRGArate2(conf, st):
-    ps = np.linspace(0.05,conf['prCut'],conf['NPts'])  #small offset, gam=0 -> rate->inf
+    ps = np.linspace(0.001,conf['prCut'],conf['NPts'])  #small offset, gam=0 -> rate->inf
     vs = ps/np.sqrt(np.power(ps,2) + np.power(conf['M'+st],2)) 
     gamms = 1/np.sqrt(1-np.power(vs,2)) 
     Rres = []
@@ -130,7 +130,20 @@ def getRGAdist(conf, state): # this will evaluate the sampling distribution func
     interp = CubicSpline(xVals,-sampledPts) 
     #normalized this for sampling s.t. max(I) = 1
     Imax = -fmin(interp, np.array(2*conf['E'+state]), full_output=0)
-    return CubicSpline(xVals,sampledPts/Imax) ### Check on this !!! 
+    return CubicSpline(xVals,sampledPts/Imax) ### Check on this !!!
+
+def getRGAdist2(conf, st):
+    qs = np.linspace(conf['E'+st]+(0.000001*conf['E'+st]), conf['E'+st]*conf['ECut'], conf['NPts']) # <-get q values + small offset
+    ps = np.linspace(0.000001, conf['prCut'], conf['NPts']) # momentum values map to v and gamma
+    vs = ps / np.sqrt(np.power(ps,2) + np.power(conf['M'+st],2))
+    gs = 1/np.sqrt(1-np.power(vs,2))
+    sampPts = []
+    for i in range(len(gs)):
+        Sgi = RGAint2(qs,gs[i],conf, st)
+        sampPts.append(Sgi/np.max(Sgi)) # all are normalized st the max is always 1 for all gamma
+    interp = RegularGridInterpolator((gs, qs), np.array(sampPts), method='linear', bounds_error = False)
+    return interp
+
 
 
 # Regeneration Rates
@@ -275,7 +288,7 @@ class sampMan:
         # Generate Real Gluon absorption sampling distributions
         self.dists['RGA'] = {}
         for state in statelist:
-            self.dists['RGA'][state] = getRGAdist(self.conf, state)
+            self.dists['RGA'][state] = getRGAdist2(self.conf, state)
         
         self.dists['Momentum'] = {}
         self.dists['Momentum']['b'] = getMomDist(self.conf, 'b')

@@ -24,6 +24,7 @@ import matplotlib.pyplot as plt
 
 import multiprocessing
 
+hbarc = 0.1973 # hbarc = 0.1973 GeV*fm
 
 conf = config()
 conf['StateList'] = ['1S']
@@ -58,22 +59,22 @@ for i in range(conf['tFn']):
     box.recLine()
     conOut.printLine([box.rec[-1][0], box.rec[-1][1], box.getNDEvs(), box.getNREvs(), box.cl.getStepTime(), box.cl.getExpectTime()])
     
-X = [line[0] for line in box.rec]
+X = np.array([line[0] for line in box.rec])
 Y = [line[1] for line in box.rec]
 
 
 # Write hidden fraction result to file
-#np.savetxt('../export/HidFrac.tsv', np.array(box.rec), delimiter='\t', fmt='%.8f')
+np.savetxt('../export/HidFrac.tsv', np.array(box.rec), delimiter='\t', fmt='%.8f')
 
 
 plt.figure(figsize=plt.figaspect(0.5))
 
 plt.subplot(321)
-plt.semilogy(X,Y)
+plt.semilogy(X*hbarc,Y)
 plt.axhline(y=calcClassExpec(conf), color='r', linestyle='--', label='Non-relativistic')
 plt.axhline(y=calcRelExpec2(conf), color='g', linestyle='--', label='Relativistic')
 #plt.ylim(0.0001,1)
-plt.xlabel('t [GeV-1]')
+plt.xlabel('t [fm/c]')
 plt.ylabel('Nb_bound/Nb_total')
 plt.title('Hidden bottom fraction')
 
@@ -98,7 +99,6 @@ plt.ylabel('Rate')
 plt.title('Momentum dependent marginal dissociation rates')
 
 RGRp1SDat = interpolations.binRGRdat(conf,box.recDump['RGRrateP1S'])
-print('RGRdat shape:',RGRp1SDat.shape)
 plt.subplot(326)
 plt.plot(RGRp1SDat[:,0],RGRp1SDat[:,1], label='RGR-1S', color = stColMap['b'])
 plt.fill_between(RGRp1SDat[:,0], (RGRp1SDat[:,1]-(RGRp1SDat[:,2]*3)), (RGRp1SDat[:,1]+(RGRp1SDat[:,2]*3)), color=stColMap['b'], alpha=0.7)

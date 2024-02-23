@@ -443,18 +443,42 @@ class particleList:
     def recomEvent(self, ev): # these events come as ['name1name2',[state, channel]]
 
         if ev[1][1] == 'RGR':
-            # No boost scenario
-            qE = ((np.linalg.norm(self.quarkCon[ev[0][:8]].mom-self.quarkCon[ev[0][8:]].mom)**2)/self.conf['M'+ev[1][0]])+self.conf['E'+ev[1][0]] # Gluon energy is fixed by prel
+            kL = self.doRGRrecom(ev[0][:8], ev[0][8:], ev[1][0])
 
-            # No boost scenario
-            CosTg = (np.random.uniform()*2)-1
-            SinTg = np.sqrt(1-(CosTg**2))
-            Phig = np.random.uniform()*np.pi*2
-            qP = np.array([qE*SinTg*np.cos(Phig), qE*SinTg*np.sin(Phig), qE*CosTg])
+        self.combineTags(ev[0], ev[1][0], kL[:3])
 
-        self.combineTags(ev[0], ev[1][0], -qP)
+    def doRGRrecom(self, n1, n2, st): # RGR momentum sampling
+        x = self.pDist(np.array([self.quarkCon[n1].pos]), np.array([self.quarkCon[n2].pos]))[0] # x distance
+        xRec = (self.quarkCon[n1].pos + self.quarkCon[n1].pos)/2 # recombination position !!!TELEPORTATION ISSUE
+        p1, p2 = self.quarkCon[n1].mom4, self.quarkCon[n2].mom4 # quark momentums
+        HBM = self.allBoost(self.HB(np.array([xRec]), self.time))[0] # get Hydro boost matrix
+        Hp1, Hp2 = HBM @ p1, HBM @ p2 # do hydro boosts
+        Vc = self.getVcell(np.array([Hp1[1:]+Hp2[1:]]))[0] # get Vcell
+        VcM = np.linalg.norm(Vc) # scalar vcell
+        g = 1/np.sqrt(1-np.power(VcM,2)) # gamma
+        CBM = self.allBoost(np.array([Vc]))[0] # get vcell boost
+        CHp1, CHp2 = CBM @ Hp1, CBM @Hp2 # do vcell boosts
+        prel = (CHp1[1:] - CHp2[1:])/2 # relative momentum 3-vec
+        q = ((prel @ prel)/self.conf['Mb']) + self.conf['E'+st] # gluon momentum fixed
+        # Sample CosThetag
+        resamp = True
+        while resamp:
+            CosThetag = (np.random.random()*2)-1 # c on [-1,1]
+            r = np.random.random() # r on [0,1]
+            if r*(1/(np.exp(g*(1+VcM)*q/self.conf['T'])-1)) < r*(1/(np.exp(g*(1+(VcM*CosThetag))*q/self.conf['T'])-1)): #Check condition
+                resamp = False
+        SinThetag = np.sqrt(1-np.power(CosThetag,2)) # 1 = sin^2 + cos^2
+        Phig = np.random.random()*np.pi*2 # Phig on [0,2Pi]
+        qV = np.array([q*SinThetag*np.cos(Phig), q*SinThetag*np.sin(Phig), q*CosThetag]) # gluon momentum 3-vec
+        RM = self.getRotMat(Vc) # Rotation matrix associated with Vc
+        kRot = RM @ (-qV) # Apply RM to -qV = krest
+        RB = self.allBoost(np.array([-self.HB(np.array([xRec]), self.time)[0], -Vc])) # get reverse boosts [-vHydro, -vcell]
+        klab = RB[0] @ (RB[1] @ np.insert(kRot, 0, np.sqrt(np.power(self.conf['M'+st],2) + np.sqrt(kRot @ kRot)))) # apply reverse boosts to kRot 4-vec
+        return klab
 
-            
+
+        
+
 
     def combineTags(self, tags, state, qP):
         # quarks need to be removed from XParts
@@ -518,7 +542,7 @@ class particleList:
                 #print('D:',result)
                 if result[0] == 'RGA':
                     pQ, pQ_ = self.doRGAdiss(result[1])
-                    self.dissociateBoundTag2(result[1], pQ, pQ_)
+                    self.dissociateBoundTag2(result[1], pQ[1:], pQ_[1:])
                     continue
                 elif result[0] == 'X':
                     #Do x channel
@@ -545,37 +569,41 @@ class particleList:
         #Collect dynamic variables
         pB = self.boundCon[tar].mom4
         vV = pB[1:]/pB[0]
-        v = np.linalg.norm(v)
+        v = np.linalg.norm(vV)
         gam = 1/np.sqrt(1-np.power(v,2))
         #Sample gluon momentum magnitude
         resamp = True
         st = self.boundCon[tar].state
         while resamp:
-            qtry = np.random.uniform(self.conf['E'+st],self.conf['E'+st]*self.conf['NPts']) 
-            if np.random.uniform() < self.dists['RGA'][st](qtry):
+            qtry = np.random.uniform(self.conf['E'+st],self.conf['E'+st]*self.conf['ECut']) 
+            if np.random.uniform() < self.dists['RGA'][st](np.array([gam, qtry])):
                 resamp = False
-        qmag = (qtry - self.conf['E'+st])/self.conf['M'+st]
+        #qmag = (qtry - self.conf['E'+st])/self.conf['M'+st]
+        qmag = qtry
         #Solve for CosTheta = x of gluon momentum
         r = np.random.random()
         B = gam*qmag/self.conf['T']
-        C = r*np.log(1-np.exp(-B*(1+v)))+((1-r)*np.log(1-np.exp(-B*(1-v))))
-        CosTheta = (1/v)*((-1)-((1/B)*np.log(1-C)))
-        SinTheta = np.sqrt(1-np.power(CosThet,2)) # 1 = sin^2 + cos^2
+        C = (r*np.log(1-np.exp(-B*(1+v))))+((1-r)*np.log(1-np.exp(-B*(1-v))))
+        CosTheta = (1/v)*(-1-((1/B)*np.log(1-C)))
+        # FUDGE LINE 
+        CosTheta = (np.random.random()*2)-1
+        SinTheta = np.sqrt(1-np.power(CosTheta,2)) # 1 = sin^2 + cos^2
         #Set gluon momentum
         qg = np.array([qmag, qmag*SinTheta, 0, qmag*CosTheta])
 
         #Solve relative momentum part
         prelM = np.sqrt(self.conf['Mb']*(qmag - self.conf['E'+st]))
         CosThetaRel = (np.random.random()*2)-1 # [-1,1]
-        SinThetaRel = np.sqrt(1-np.power(CosThetRel,2)) # 1 = sin^2 + cos^2
+        SinThetaRel = np.sqrt(1-np.power(CosThetaRel,2)) # 1 = sin^2 + cos^2
         PhiRel = np.random.random()*np.pi*2 # [0,2Pi]
         prel = np.array([prelM*SinThetaRel*np.cos(PhiRel), prelM*SinThetaRel*np.sin(PhiRel), prelM*CosThetaRel])
         #Set and rotate pQ and pQ_
         RotMat = self.getRotMat(pB)
-        pQ = RotMat @ (prel + (qg/2))
-        pQ_ = RotMat @ (-prel + (qg/2))
-        Bs = self.allBoost(np.array([-vV, -self.HB(np.array(self.boundCon[tar].pos), self.time)])) # gets both vcell boost and hydro boost
-        return (Bs[0] @ Bs[1]) @ np.insert(pQ, 0, np.sqrt((pQ @ pQ) + np.power(self.conf['Mb'],2))), (Bs[0] @ Bs[1]) @ np.insert(pQ_, 0, np.sqrt((pQ_ @ pQ_) + np.power(self.conf['Mb'],2)))
+        pQ = RotMat @ (prel + (qg[1:]/2))
+        pQ_ = RotMat @ (-prel + (qg[1:]/2))
+        #print('ShapeCheck: ', self.HB(np.array([self.boundCon[tar].pos]), self.time).shape)
+        Bs = self.allBoost(np.array([-self.HB(np.array([self.boundCon[tar].pos]), self.time)[0], -vV])) # gets both vcell boost and hydro boost
+        return Bs[0] @ (Bs[1] @ np.insert(pQ, 0, np.sqrt((pQ @ pQ) + np.power(self.conf['Mb'],2)))), Bs[0] @ (Bs[1] @ np.insert(pQ_, 0, np.sqrt((pQ_ @ pQ_) + np.power(self.conf['Mb'],2))))
         # returns rotated and boosted pQ, pQ_
 
 
@@ -700,12 +728,12 @@ class particleList:
                         # Boost to center of mass frame
                         Vcs = self.getVcell(HBoosted[0][:,1:]+HBoosted[1][:,1:])
                         CMBoosted = [np.einsum('ijk,ik->ij',self.allBoost(Vcs),HBoosted[0]), np.einsum('ijk,ik->ij',self.allBoost(Vcs),HBoosted[1])]
-                        pRs = CMBoosted[0][:,1:]-CMBoosted[1][:,1:]
+                        pRs = (1/2)*(CMBoosted[0][:,1:]-CMBoosted[1][:,1:])
                         #print('pRsm:',np.min(np.einsum('ij,ij->i', pRs, pRs)))
                         #print('prs:', pRs)
                         #print('Xs:',Xs[:,0].shape)
                         #print('Xr',self.pDist(Xs[:][0],Xs[:][1])  )
-                        inpVars = np.array([self.pDist(Xs[:,0],Xs[:,1]), np.einsum('ij,ij->i', pRs, pRs)])
+                        inpVars = np.array([self.pDist(Xs[:,0],Xs[:,1]), np.sqrt(np.einsum('ij,ij->i', pRs, pRs))])
                         #print('inpVars.shape:',inpVars.shape)
 
                         #inpVars = np.array([[np.linalg.norm(xpP[0][1:]-xpP[1][1:]),self.pDist(xpP[2], xpP[3])] for pairtag, xpP in xpPairs.items()])
@@ -785,7 +813,7 @@ class particleList:
                                 return np.arra(qrkVarPairs)
 
                      
-            return np.array(qrkVarPairs)            
+            return np.array(qrkVarPairs)          
     
     def getRecomEventsMP(self,i,j,k):
         # Gets all  qrk.anti==0 qrks in partition ijk
@@ -819,12 +847,12 @@ class particleList:
         #print('COMBO MEAL:',HBoosted[0][:,1:]+HBoosted[1][:,1:]  )
         #print('Vcs:',Vcs)
         CMBoosted = [np.einsum('ijk,ik->ij',self.allBoost(Vcs),HBoosted[0]), np.einsum('ijk,ik->ij',self.allBoost(Vcs),HBoosted[1])]
-        pRs = CMBoosted[0][:,1:]-CMBoosted[1][:,1:]
+        pRs = (1/2)*(CMBoosted[0][:,1:]-CMBoosted[1][:,1:])
         #print('pRsm:',np.min(np.einsum('ij,ij->i', pRs, pRs)))
         #print('prs:', pRs)
         #print('Xs:',Xs[:,0].shape)
         #print('Xr',self.pDist(Xs[:][0],Xs[:][1])  )
-        inpVars = np.array([self.pDist(Xs[:,0],Xs[:,1]), np.einsum('ij,ij->i', pRs, pRs)])
+        inpVars = np.array([self.pDist(Xs[:,0],Xs[:,1]), np.sqrt(np.einsum('ij,ij->i', pRs, pRs))])
         #print('inpVars.shape:',inpVars.shape)
 
         #inpVars = np.array([[np.linalg.norm(xpP[0][1:]-xpP[1][1:]),self.pDist(xpP[2], xpP[3])] for pairtag, xpP in xpPairs.items()])
@@ -844,7 +872,7 @@ class particleList:
         # roll recombination in each channel
         # floor(rateFunc(xr,pr)*dt - R) + 1  with (random number)R in (0,1) <-- this should be 1 for a recombination and 0 otherwise
         # RGR channel
-
+        #                     V--This 2 is here for symmetry to account for only quark_i -> antiquark_j (need to roll also aq_j -> q_i)
         RGRres = {st:np.floor(2*RGRsum2(inpVars[0],inpVars[1],np.linalg.norm(Vcs, axis=1),self.conf,st)*self.conf['dt']-np.random.rand(len(pairtags))).astype(int)+1 for st in self.conf['StateList']}
         
 
