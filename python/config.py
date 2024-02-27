@@ -81,7 +81,7 @@ class stepClock:
         return f"{int(hours):02d}:{int(minutes):02d}:{int(seconds):02d}.{fractional_seconds:02d}"
 
 class conOutput:
-    def __init__(self, LabelSpacing = [['t [GeV-1]',12,None],['Nhid/Ntot',24,None],['#D',4,(200,50,50)],['#R',4,(100,100,200)],['StepTime',12,None],['ExpTime',12,None]]):
+    def __init__(self, LabelSpacing = [['t [GeV-1]',12,None],['Nhid/Ntot',24,None],['#D',4,(200,50,50)],['#R',4,(100,100,200)],['StepTime',12,None],['ExpTime',12,None],['E/N',6,None],['p1/N',6,None],['p2/N',6,None],['p3/N',6,None]]):
         self.LS = LabelSpacing #Spacing for console ouput
     def printHeader(self):
         print(" ".join([Sp[0][:Sp[1]].ljust(Sp[1]," ") for Sp in self.LS]))

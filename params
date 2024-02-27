@@ -9,21 +9,21 @@
 L 50
 
 # Simulation time step
-dt 2.0
+dt 0.5
 
 # Temperature [GeV]
 T 0.3
 
 # Total number of simulation steps
-tFn 100
+tFn 200
 
 ### Initial occupations
 
 # Initial number of bound states
-NY 1000
+NY 5000
 
 # Initial number of bb parirs
-Nbb 1
+Nbb 5000
 
 ##############################
 ##### Simulation Options #####
@@ -38,15 +38,20 @@ pSampleType 0
 UniPMax 10
 pSampSig 0.2
 
+# Matrix Elements
+## 0 = Plane wave
+## 1 = Coulomb scattering wave
+MatrElems 0
+
 
 # Energy cutoff for interpolations and sampling (as a number*Enl)
-ECut 20
+ECut 40
 
 # Relative momentum cutoff for interpotaions and sampling 
-prCut 12
+prCut 22
 
 # Number of sampled points for interpolations and sampling
-NPts 100
+NPts 300
 
 # Export points sampled for rate interpolations
 ExportRates True
@@ -84,11 +89,11 @@ doDisso 1
 Mb 4.65
 
 # Bound state masses
-M1S 9.032
+M1S 9.3826
 M2S 10.023
 
 # Binding energies
-E1S 0.067
+E1S 0.0826
 E2S 0.723
 
 # Particle Cross-sections
@@ -100,6 +105,7 @@ alphaS 0.3
 
 #  CF = 4/3
 CF 1.33333333333333333333
+
 
 # Number of colors
 NC 3

@@ -52,12 +52,12 @@ class quark:
             self.mom = np.random.normal(loc=conf['UniPMax'], scale=conf['pSampSig'])*momD/np.linalg.norm(momD)  
         # Space partition
         self.XPart = np.floor(self.pos*conf['NXPart']/conf['L']).astype(int)
-        self.mom4 = np.insert(self.mom,0,np.array(np.sqrt(np.dot(self.mom, self.mom)+(self.conf['Mb']**2))),axis=0)
+        self.mom4 = np.insert(self.mom,0,np.sqrt(np.dot(self.mom, self.mom)+(self.conf['Mb']**2)),axis=0)
     def Xstep(self):
         self.pos = (self.pos + (self.mom/np.sqrt((self.conf['Mb']**2)+np.dot(self.mom,self.mom)))*self.conf['dt'])%self.conf['L']
     def Pstep(self):
         #self.mom = self.mom*(1-0.001) #Drag
-        self.mom4 = np.insert(self.mom,0,np.array(np.sqrt(np.dot(self.mom, self.mom)+(self.conf['Mb']**2))),axis=0) #Update mom4  
+        self.mom4 = np.insert(self.mom,0,np.sqrt(np.dot(self.mom, self.mom)+(self.conf['Mb']**2)),axis=0) #Update mom4  
     def exchangeStep(self, partners): # partners = [partner_Xs, partner_Ps]
         partner_Xs = partners[0]
         partner_Ps = partners[1]        
@@ -698,6 +698,10 @@ class particleList:
 
         return len(self.Devents)
 
+    def getTot4p(self):
+        return ( np.sum(np.array([self.quarkCon[tag].mom4 for tag in self.quarkCon.keys()]), axis=0) + np.sum(np.array([self.boundCon[tag].mom4 for tag in self.boundCon.keys()]), axis=0) ) / ((self.conf['Nbb']*2)+(self.conf['NY']*2)) # Returns sum of all momentum 4-vecs / total num of b or b_ quarks  ~avg quark 4-mom 
+        
+
     def measureRGRrateGam(self, st):
         qrkRates = []
         for i in range(self.conf['NXPart']):
@@ -717,6 +721,7 @@ class particleList:
                         
                         if len(pairtags) == 0:
                             continue
+
                         Xs = np.array([[xpP[2], xpP[3]] for pairtag, xpP in xpPairs.items()]) 
                         Ps = np.array([[xpP[0], xpP[1]] for pairtag, xpP in xpPairs.items()]) # [p1,p2]
                         

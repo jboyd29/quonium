@@ -57,7 +57,8 @@ conOut.printHeader()
 for i in range(conf['tFn']):
     box.step2()
     box.recLine()
-    conOut.printLine([box.rec[-1][0], box.rec[-1][1], box.getNDEvs(), box.getNREvs(), box.cl.getStepTime(), box.cl.getExpectTime()])
+    tot4p = box.getTot4p()
+    conOut.printLine([box.rec[-1][0], box.rec[-1][1], box.getNDEvs(), box.getNREvs(), box.cl.getStepTime(), box.cl.getExpectTime(), tot4p[0], tot4p[1], tot4p[2], tot4p[3]])
     
 X = np.array([line[0] for line in box.rec])
 Y = [line[1] for line in box.rec]

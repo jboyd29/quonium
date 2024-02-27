@@ -72,14 +72,18 @@ class probBlock:
 def OvLp(conf, q , state):
     pr = np.sqrt(conf['M'+'b']*(q-conf['E'+state]))
     #eta = conf['alphaS']*conf['M'+state]/(4*conf['NC']*pr)
-    aB = 2/(conf["alphaS"]*conf['CF']*conf['M'+'b'])   #Hardcoded alphaS
+    aB = 2/(conf['alphaS']*conf['CF']*conf['M'+'b'])   #Hardcoded alphaS
     #print('etaM:',np.max(eta))
-    if state == '1S':
-        #return ( ((2**9)*(np.pi**2)*(eta)*(np.power(aB,7))*(np.power(pr,2))*(1+np.power(eta,2))*np.power(2+eta*aB*pr,2))  /  ((np.power(1+(aB**2)*np.power(pr,2),6))*(np.exp(2*np.pi*eta)-1)) ) * np.exp(4*eta*np.arctan(aB*pr))
-        return ((2**10)*np.pi*np.power(aB,7)*np.power(pr,2)) / np.power(1+(np.power(aB,2)*np.power(pr,2)),6)
-    elif state == '2S':
-        return 0
-
+    if conf['MatrElems'] == 0: # Plane wave matrix elements
+        if state == '1S':
+            #return ( ((2**9)*(np.pi**2)*(eta)*(np.power(aB,7))*(np.power(pr,2))*(1+np.power(eta,2))*np.power(2+eta*aB*pr,2))  /  ((np.power(1+(aB**2)*np.power(pr,2),6))*(np.exp(2*np.pi*eta)-1)) ) * np.exp(4*eta*np.arctan(aB*pr))
+            return ((2**10)*np.pi*np.power(aB,7)*np.power(pr,2)) / np.power(1+(np.power(aB,2)*np.power(pr,2)),6)
+        elif state == '2S':
+            return 0
+    elif conf['MatrElems'] == 1: # Coulomb scattering wave matrix elements
+        eta = pr*conf['alphaS']*conf['Mb']/(4*conf['NC'])
+        if state == '1S':
+            return (((2**9)*(np.pi**2)*eta*np.power(pr,2)*(aB**7)*np.power(2+(eta*pr*aB),2)*(1-np.power(eta,2)))/(np.power(1+(np.power(pr,2)*(aB**2)),6)*(np.exp(2*np.pi*eta)-1)))*np.exp(4*eta*np.arctan(pr*aB))
 
 
 # Dissociation Rates
@@ -158,7 +162,7 @@ def RGRsum2(x, pr, vcm, conf, state): # <- This one is used in sim
     aB = 2/(conf['alphaS']*conf['CF']*conf['M'+'b'])
     q = conf['E'+state]+((np.power(pr,2))/conf['M'+'b'])
     g = 1/np.sqrt(1-np.power(vcm,2))
-    return (conf['gs']/(conf['NC']**2)) * ( np.exp(-(np.power(x,2))/(2*(aB**2))) / ((2*np.pi*(aB**2))**(3/2)) ) * (8/9)*(conf['alphaS'])*np.power(q,3) * (2+(conf['T']/(g*vcm*q))*np.log((1-np.exp(-g*(1+vcm)*q/conf['T']))/((1-np.exp(-g*(1-vcm)*q/conf['T']))))) * OvLp(conf, q, state)
+    return (conf['gs']/(conf['NC']**2)) * ( np.exp(-(np.power(x,2))/(2*(aB**2))) / ((2*np.pi*(aB**2))**(3/2)) ) * (8/9)*(conf['alphaS'])*np.power(q,3) * (2+((conf['T']/(g*vcm*q))*np.log((1-np.exp(-g*(1+vcm)*q/conf['T']))/((1-np.exp(-g*(1-vcm)*q/conf['T'])))))) * OvLp(conf, q, state)
 
 def getRGRrate(conf, state):
     prVals = np.linspace(0,conf['prCut'],conf['NPts'])
