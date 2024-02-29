@@ -52,12 +52,12 @@ class quark:
             self.mom = np.random.normal(loc=conf['UniPMax'], scale=conf['pSampSig'])*momD/np.linalg.norm(momD)  
         # Space partition
         self.XPart = np.floor(self.pos*conf['NXPart']/conf['L']).astype(int)
-        self.mom4 = np.insert(self.mom,0,np.sqrt(np.dot(self.mom, self.mom)+(self.conf['Mb']**2)),axis=0)
+        self.mom4 = np.insert(self.mom,0,np.sqrt((self.mom @ self.mom)+(self.conf['Mb']**2)),axis=0)
     def Xstep(self):
         self.pos = (self.pos + (self.mom/np.sqrt((self.conf['Mb']**2)+np.dot(self.mom,self.mom)))*self.conf['dt'])%self.conf['L']
     def Pstep(self):
         #self.mom = self.mom*(1-0.001) #Drag
-        self.mom4 = np.insert(self.mom,0,np.sqrt(np.dot(self.mom, self.mom)+(self.conf['Mb']**2)),axis=0) #Update mom4  
+        self.mom4 = np.insert(self.mom,0,np.sqrt((self.mom @ self.mom) + (self.conf['Mb']**2)),axis=0) #Update mom4  
     def exchangeStep(self, partners): # partners = [partner_Xs, partner_Ps]
         partner_Xs = partners[0]
         partner_Ps = partners[1]        
@@ -106,7 +106,7 @@ class bound:
             elif 3 == conf['pSampleType']:
                 momD = np.random.randn(3)
                 self.mom = np.random.normal(loc=conf['UniPMax'], scale=conf['pSampSig'])*momD/np.linalg.norm(momD)
-            self.mom4 = np.insert(self.mom,0,np.array(np.sqrt(np.dot(self.mom, self.mom)+(self.conf['M'+self.state]**2))),axis=0)
+            self.mom4 = np.insert(self.mom,0,np.sqrt((self.mom @ self.mom)+(self.conf['M'+self.state]**2)),axis=0)
             # Initialize constituent quarks
             self.quarks = [quark(conf),quark(conf,anti=1)]
             self.name = self.quarks[0].name + self.quarks[1].name
@@ -115,12 +115,12 @@ class bound:
             self.name = self.quarks[0].name+self.quarks[1].name
             self.pos = (quarks[0].pos+quarks[1].pos)/2 #Position set to center of mass
             self.mom = p #Momentum sent down by event sampler
-            self.mom4 = np.insert(self.mom,0,np.array(np.sqrt(np.dot(self.mom, self.mom)+(self.conf['M'+self.state]**2))),axis=0) 
+            self.mom4 = np.insert(self.mom,0,np.sqrt((p @ p) + (self.conf['M'+self.state]**2)),axis=0) 
     def Xstep(self):
         self.pos = (self.pos + (self.mom/np.sqrt((self.conf['M'+self.state]**2)+np.dot(self.mom,self.mom)))*self.conf['dt'])%self.conf['L']
     def Pstep(self):
         #self.mom = self.mom*(1-0.001) #tiny drag
-        self.mom4 = np.insert(self.mom,0,np.array(np.sqrt(np.dot(self.mom, self.mom)+(self.conf['M'+self.state]**2))),axis=0)
+        self.mom4 = np.insert(self.mom,0,np.sqrt((self.mom @ self.mom)+(self.conf['M'+self.state]**2)),axis=0)
     def exchangeStep(self): #CURRENTLY UNUSED
         # Here it would take the dissocation rate but for now ot will be random
         if np.random.uniform() < 0.005:
@@ -444,8 +444,7 @@ class particleList:
 
         if ev[1][1] == 'RGR':
             kL = self.doRGRrecom(ev[0][:8], ev[0][8:], ev[1][0])
-
-        self.combineTags(ev[0], ev[1][0], kL[:3])
+        self.combineTags(ev[0], ev[1][0], kL[1:])
 
     def doRGRrecom(self, n1, n2, st): # RGR momentum sampling
         x = self.pDist(np.array([self.quarkCon[n1].pos]), np.array([self.quarkCon[n2].pos]))[0] # x distance
@@ -457,7 +456,7 @@ class particleList:
         VcM = np.linalg.norm(Vc) # scalar vcell
         g = 1/np.sqrt(1-np.power(VcM,2)) # gamma
         CBM = self.allBoost(np.array([Vc]))[0] # get vcell boost
-        CHp1, CHp2 = CBM @ Hp1, CBM @Hp2 # do vcell boosts
+        CHp1, CHp2 = CBM @ Hp1, CBM @ Hp2 # do vcell boosts
         prel = (CHp1[1:] - CHp2[1:])/2 # relative momentum 3-vec
         q = ((prel @ prel)/self.conf['Mb']) + self.conf['E'+st] # gluon momentum fixed
         # Sample CosThetag
@@ -473,7 +472,7 @@ class particleList:
         RM = self.getRotMat(Vc) # Rotation matrix associated with Vc
         kRot = RM @ (-qV) # Apply RM to -qV = krest
         RB = self.allBoost(np.array([-self.HB(np.array([xRec]), self.time)[0], -Vc])) # get reverse boosts [-vHydro, -vcell]
-        klab = RB[0] @ (RB[1] @ np.insert(kRot, 0, np.sqrt(np.power(self.conf['M'+st],2) + np.sqrt(kRot @ kRot)))) # apply reverse boosts to kRot 4-vec
+        klab = RB[0] @ (RB[1] @ np.insert(kRot, 0, np.sqrt(np.power(self.conf['M'+st],2) + (kRot @ kRot)))) # apply reverse boosts to kRot 4-vec
         return klab
 
 
@@ -584,9 +583,7 @@ class particleList:
         r = np.random.random()
         B = gam*qmag/self.conf['T']
         C = (r*np.log(1-np.exp(-B*(1+v))))+((1-r)*np.log(1-np.exp(-B*(1-v))))
-        CosTheta = (1/v)*(-1-((1/B)*np.log(1-C)))
-        # FUDGE LINE 
-        CosTheta = (np.random.random()*2)-1
+        CosTheta = (1/v)*(-1-((1/B)*np.log(1-np.exp(C))))
         SinTheta = np.sqrt(1-np.power(CosTheta,2)) # 1 = sin^2 + cos^2
         #Set gluon momentum
         qg = np.array([qmag, qmag*SinTheta, 0, qmag*CosTheta])
