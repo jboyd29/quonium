@@ -9,6 +9,9 @@ from interpolations import probBlock
 
 from interpolations import RGRsum2
 
+from interpolations import qFprRG
+from interpolations import prFqRG
+
 from config import stepClock
 from config import colr
 
@@ -381,13 +384,11 @@ class particleList:
             # Get events and manage conflicts
             self.events = self.checkREvents(eventsRaw)
             
-            for event in self.events.items():
-                self.recomEvent(list(event))
+            #for event in self.events.items():
+                #self.recomEvent(list(event))
 
         elif 0 == self.conf['doRecom']:
             self.events = {}
-
-        #print('R:',self.events)
 
         #Dissociation
         if 1 == self.conf['doDisso']: # Switch for turning off dissociation 
@@ -395,10 +396,20 @@ class particleList:
             #for tag in self.boundCon.keys():
              #   self.checkDissoc(tag)
             self.Devents = self.getDissocEvs2()
-            self.doDissocEvs(self.Devents)
+            #self.doDissocEvs(self.Devents)
 
         elif 0 == self.conf['doDisso']:
             self.Devents = []
+
+
+        # Sample momentum for events
+
+        if 1 == self.conf['doRecom']:
+            for event in self.events.items():
+                self.recomEvent(list(event))
+
+        if 1 == self.conf['doDisso']:
+            self.doDissocEvs(self.Devents)
 
         #print('D:',self.Devents)
         #print('Boundtags:',self.boundCon.keys())
@@ -451,14 +462,15 @@ class particleList:
         xRec = (self.quarkCon[n1].pos + self.quarkCon[n1].pos)/2 # recombination position !!!TELEPORTATION ISSUE
         p1, p2 = self.quarkCon[n1].mom4, self.quarkCon[n2].mom4 # quark momentums
         HBM = self.allBoost(self.HB(np.array([xRec]), self.time))[0] # get Hydro boost matrix
-        Hp1, Hp2 = HBM @ p1, HBM @ p2 # do hydro boosts
-        Vc = self.getVcell(np.array([Hp1[1:]+Hp2[1:]]))[0] # get Vcell
+        Hp1, Hp2 = HBM @ p1, HBM @ p2 # do hydro boost
+        Vc = self.getVcell2(np.array([Hp1+Hp2]))[0] # get Vcell
         VcM = np.linalg.norm(Vc) # scalar vcell
         g = 1/np.sqrt(1-np.power(VcM,2)) # gamma
         CBM = self.allBoost(np.array([Vc]))[0] # get vcell boost
         CHp1, CHp2 = CBM @ Hp1, CBM @ Hp2 # do vcell boosts
         prel = (CHp1[1:] - CHp2[1:])/2 # relative momentum 3-vec
-        q = ((prel @ prel)/self.conf['Mb']) + self.conf['E'+st] # gluon momentum fixed
+        #q = ((prel @ prel)/self.conf['Mb']) + self.conf['E'+st] # gluon momentum fixed
+        q = qFprRG(self.conf, np.linalg.norm(prel), st)
         # Sample CosThetag
         resamp = True
         while resamp:
@@ -473,6 +485,15 @@ class particleList:
         kRot = RM @ (-qV) # Apply RM to -qV = krest
         RB = self.allBoost(np.array([-self.HB(np.array([xRec]), self.time)[0], -Vc])) # get reverse boosts [-vHydro, -vcell]
         klab = RB[0] @ (RB[1] @ np.insert(kRot, 0, np.sqrt(np.power(self.conf['M'+st],2) + (kRot @ kRot)))) # apply reverse boosts to kRot 4-vec
+
+        kE = np.sqrt(np.power(self.conf['M'+st],2)+(kRot @ kRot))
+        #print('CHK:',(kE+q)-(CHp1[0]+CHp2[0]))
+        #print('C3:', np.linalg.norm(CHp1[1:] + CHp2[1:]))
+        #print('C4:', q - np.sqrt(kRot @ kRot))
+        #print('C5:', q - (CHp1[1:]@CHp1[1:]/self.conf['Mb']))
+        #print('kE:',kE)
+        print('prel:',np.linalg.norm(prel))
+        
         return klab
 
 
@@ -589,7 +610,8 @@ class particleList:
         qg = np.array([qmag, qmag*SinTheta, 0, qmag*CosTheta])
 
         #Solve relative momentum part
-        prelM = np.sqrt(self.conf['Mb']*(qmag - self.conf['E'+st]))
+        #prelM = np.sqrt(self.conf['Mb']*(qmag - self.conf['E'+st]))
+        prelM = prFqRG(self.conf, qmag, st)
         CosThetaRel = (np.random.random()*2)-1 # [-1,1]
         SinThetaRel = np.sqrt(1-np.power(CosThetaRel,2)) # 1 = sin^2 + cos^2
         PhiRel = np.random.random()*np.pi*2 # [0,2Pi]
@@ -600,7 +622,9 @@ class particleList:
         pQ_ = RotMat @ (-prel + (qg[1:]/2))
         #print('ShapeCheck: ', self.HB(np.array([self.boundCon[tar].pos]), self.time).shape)
         Bs = self.allBoost(np.array([-self.HB(np.array([self.boundCon[tar].pos]), self.time)[0], -vV])) # gets both vcell boost and hydro boost
-        return Bs[0] @ (Bs[1] @ np.insert(pQ, 0, np.sqrt((pQ @ pQ) + np.power(self.conf['Mb'],2)))), Bs[0] @ (Bs[1] @ np.insert(pQ_, 0, np.sqrt((pQ_ @ pQ_) + np.power(self.conf['Mb'],2))))
+        pQL, pQ_L, = Bs[0] @ (Bs[1] @ np.insert(pQ, 0, np.sqrt((pQ @ pQ) + np.power(self.conf['Mb'],2)))), Bs[0] @ (Bs[1] @ np.insert(pQ_, 0, np.sqrt((pQ_ @ pQ_) + np.power(self.conf['Mb'],2)))) 
+        #print('Dchk:', (pB[0]+qmag)-(pQL[0]+pQ_L[0]))
+        return pQL, pQ_L
         # returns rotated and boosted pQ, pQ_
 
 
@@ -845,7 +869,8 @@ class particleList:
         #print('Ps',Ps)
         #print('HBS',HBoosted[0])
         # Boost to center of mass frame
-        Vcs = self.getVcell(HBoosted[0][:,1:]+HBoosted[1][:,1:])
+        #Vcs = self.getVcell(HBoosted[0][:,1:]+HBoosted[1][:,1:])
+        Vcs = self.getVcell2(HBoosted[0]+HBoosted[1])
         #print('COMBO MEAL:',HBoosted[0][:,1:]+HBoosted[1][:,1:]  )
         #print('Vcs:',Vcs)
         CMBoosted = [np.einsum('ijk,ik->ij',self.allBoost(Vcs),HBoosted[0]), np.einsum('ijk,ik->ij',self.allBoost(Vcs),HBoosted[1])]
@@ -922,8 +947,9 @@ class particleList:
 
     def getVcell(self, pcm):
         return pcm/np.sqrt(((2*self.conf['Mb'])**2) + np.einsum('ij,ij->i',pcm,pcm))[:,np.newaxis]
- 
-    
+    def getVcell2(sefl, pcm4):
+        return pcm4[:,1:]/pcm4[:,0,np.newaxis]
+
     def allBoost(self, v): # v is a vector of velocity vectors vi 
         vx, vy, vz = v.T # get the x y and z components of each vi
         vM = np.linalg.norm(v, axis=1) # get vector of magnitudes of each velocity
@@ -936,7 +962,7 @@ class particleList:
         res[:, 1:, 0] = -g[:,np.newaxis]*v # i0 to -g*v 
         #print('v:',v)
         #print(len(v))
-        res[:, 1:, 1:] = np.tile(np.eye(3), (len(v), 1, 1)) + (g[:,np.newaxis,np.newaxis]-np.ones((len(v),3,3)))*vvT/vM[:,np.newaxis,np.newaxis] # i-123 j-123 set to 1 - (g-1)vvT/vM
+        res[:, 1:, 1:] = np.tile(np.eye(3), (len(v), 1, 1)) + (g[:,np.newaxis,np.newaxis]-np.ones((len(v),3,3)))*vvT/np.power(vM,2)[:,np.newaxis,np.newaxis] # i-123 j-123 set to 1 - (g-1)vvT/vM
         return res
     
     

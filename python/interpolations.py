@@ -56,8 +56,20 @@ class probBlock:
 
 
 
+# General functions
 
+def qFprRG(conf, prel, st):
+    if 0 == conf['qRGtype']:
+        return (np.power(prel, 2)/conf['Mb']) + conf['E'+st]
+    elif 1 == conf['qRGtype']:
+        En = np.sqrt(np.power(conf['Mb'],2) + np.power(prel,2))
+        return En - (np.power(conf['M'+st],2)/(4*En))
 
+def prFqRG(conf, q, st):
+    if 0 == conf['qRGtype']:
+        return np.sqrt(conf['Mb']*(q-conf['E'+st]))
+    elif 1 == conf['qRGtype']:
+        return (1/4)*np.sqrt(np.power(q + np.sqrt(np.power(conf['M'+st],2) + np.power(q,2)),2) - np.power(conf['Mb'],2))
 
 
 
@@ -70,7 +82,8 @@ class probBlock:
 # Overlaps
 
 def OvLp(conf, q , state):
-    pr = np.sqrt(conf['M'+'b']*(q-conf['E'+state]))
+    #pr = np.sqrt(conf['M'+'b']*(q-conf['E'+state]))
+    pr = prFqRG(conf, q, state)
     #eta = conf['alphaS']*conf['M'+state]/(4*conf['NC']*pr)
     aB = 2/(conf['alphaS']*conf['CF']*conf['M'+'b'])   #Hardcoded alphaS
     #print('etaM:',np.max(eta))
@@ -95,7 +108,8 @@ def RGAint(q, conf, state):  # state = '1S', '2S' ... this is just the integrand
 
 def RGAint2(q, gam, conf, st):
     vc = np.sqrt(1-(1/np.power(gam,2)))
-    pr = np.sqrt(conf['M'+'b']*(q-conf['E'+st])) 
+    #pr = np.sqrt(conf['M'+'b']*(q-conf['E'+st]))
+    pr = prFqRG(conf, q, st)
     return (2*conf['alphaS']*conf['M'+'b']*conf['T']/(9*(np.pi**2)*vc*np.power(gam,2))) * np.power(q,2)*pr*np.log((1-np.exp(-gam*(1+vc)*q/conf['T']))/(1-np.exp(-gam*(1-vc)*q/conf['T']))) * OvLp(conf, q, st) 
 
 def getRGArate2(conf, st):
@@ -154,13 +168,14 @@ def getRGAdist2(conf, st):
 
 # Real Gluon Radiation
 
-def RGRsum(x, pr, conf, state): # x-relative spearation pr-relaltive momentum
-    aB = 2/(conf['alphaS']*conf['CF']*conf['M'+state]) 
-    return (conf['gs']/(conf['NC']**2)) * ( np.exp(-(np.power(x,2))/(2*(aB**2))) / ((2*np.pi*(aB**2))**(3/2)) ) * (8/9)*(conf['alphaS'])*np.power(conf['E'+state]+((np.power(pr,2))/conf['M'+state]),3) * (2+(2/(np.exp((conf["E"+state]+(np.power(pr,2)/conf["M"+state]))/conf["T"])+1))) * OvLp(conf,conf['E'+state]+((np.power(pr,2))/conf['M'+state]), state)
+#def RGRsum(x, pr, conf, state): # x-relative spearation pr-relaltive momentum
+    #aB = 2/(conf['alphaS']*conf['CF']*conf['M'+state]) 
+    #return (conf['gs']/(conf['NC']**2)) * ( np.exp(-(np.power(x,2))/(2*(aB**2))) / ((2*np.pi*(aB**2))**(3/2)) ) * (8/9)*(conf['alphaS'])*np.power(conf['E'+state]+((np.power(pr,2))/conf['M'+state]),3) * (2+(2/(np.exp((conf["E"+state]+(np.power(pr,2)/conf["M"+state]))/conf["T"])+1))) * OvLp(conf,conf['E'+state]+((np.power(pr,2))/conf['M'+state]), state)
 
 def RGRsum2(x, pr, vcm, conf, state): # <- This one is used in sim
     aB = 2/(conf['alphaS']*conf['CF']*conf['M'+'b'])
-    q = conf['E'+state]+((np.power(pr,2))/conf['M'+'b'])
+    #q = conf['E'+state]+((np.power(pr,2))/conf['M'+'b'])
+    q = qFprRG(conf, pr, state) 
     g = 1/np.sqrt(1-np.power(vcm,2))
     return (conf['gs']/(conf['NC']**2)) * ( np.exp(-(np.power(x,2))/(2*(aB**2))) / ((2*np.pi*(aB**2))**(3/2)) ) * (8/9)*(conf['alphaS'])*np.power(q,3) * (2+((conf['T']/(g*vcm*q))*np.log((1-np.exp(-g*(1+vcm)*q/conf['T']))/((1-np.exp(-g*(1-vcm)*q/conf['T'])))))) * OvLp(conf, q, state)
 
@@ -271,9 +286,9 @@ class rateMan:
         #Regeneration
 
         #Generate Real Gloun Radiation rates
-        self.rates['RGR'] = {}
-        for state in statelist:
-            self.rates['RGR'][state] = getRGRrate(self.conf, state) # these are 2d interpolating functions that take x and pr as args
+        #self.rates['RGR'] = {}
+        #for state in statelist:
+            #self.rates['RGR'][state] = getRGRrate(self.conf, state) # these are 2d interpolating functions that take x and pr as args
             #self.rates['RGR'][state] = 
 
 

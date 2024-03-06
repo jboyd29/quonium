@@ -15,15 +15,15 @@ dt 1.0
 T 0.3
 
 # Total number of simulation steps
-tFn 50
+tFn 80
 
 ### Initial occupations
 
 # Initial number of bound states
-NY 1
+NY 10
 
 # Initial number of bb parirs
-Nbb 40000
+Nbb 10000
 
 ##############################
 ##### Simulation Options #####
@@ -42,6 +42,12 @@ pSampSig 0.2
 ## 0 = Plane wave
 ## 1 = Coulomb scattering wave
 MatrElems 0
+
+# Real gluon scattering partner momentum type
+## 0 -> q = (prel^2/Mb) + Enl
+## 1 -> q = E - (1/4)(2Mb-Enl)^2 / E :: p1[0]+p2[0] = E
+
+qRGtype 1
 
 
 # Energy cutoff for interpolations and sampling (as a number*Enl)
@@ -90,8 +96,9 @@ Mb 4.65
 
 # Bound state masses
 #M1S 9.217
-M1S 9.46
+#M1S 9.46
 #M1S 9.032
+M1S 9.091
 
 M2S 10.023
 
@@ -99,7 +106,7 @@ M2S 10.023
 # Enl = (aS^2)*Mb/2
 
 ## aS = 0.3
-E1S 0.209
+E1S 0.20925
 ## aS = 0.4
 #E1S 0.372
 
