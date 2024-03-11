@@ -151,6 +151,7 @@ class particleList:
     def __init__(self, conf, rates, dists):
         self.conf = conf
         self.cl = stepClock(self.conf['tFn'])
+        self.ti = 0
         self.time = 0.0
 
         self.rates = rates
@@ -162,8 +163,7 @@ class particleList:
         self.rec = []
 
 
-        self.recDump = {} #Container for various debug outputs
-        self.recDump['RGArateSampDist'] = []
+
 
         
         quarksTemp = [quark(conf, anti=n, initPmag=dists['Momentum']['b']()) for i in range(conf['Nbb']) for n in (0,1)] # This is just for initializing quarks
@@ -179,7 +179,9 @@ class particleList:
 
         
         # Some initial data collection
-        self.recDump['RGRrateP1S'] = self.measureRGRrateGam('1S')
+        
+        self.recDump = {} #Container for various debug outputs
+        self.initDump()
 
 
     def getQuarkX(self):
@@ -222,6 +224,10 @@ class particleList:
         for ind in sorted(inds, reverse=True):
             del self.quarks[ind]
         self.bounds.append(bnd)
+
+    def getNb(self):
+        return 2*(self.conf['Nbb'] + self.conf['NY'])
+
     def step(self):
         #print(len(self.get0QuarkInd()),len(self.get1QuarkInd()))
         # X-step
@@ -415,13 +421,18 @@ class particleList:
         #print('Boundtags:',self.boundCon.keys())
         # Increment time
         self.time += self.conf['dt']
+        self.ti += 1 
         # Stop timer
         self.cl.stop()
         
 
 
+    def initDump(self):
 
-
+        self.recDump['RGRrateP1S'] = self.measureRGRrateGam('1S')
+        self.recDump['RGArateSampDist'] = []
+        self.recDump['qEin'] = [0 for i in range(self.conf['tFn'])]
+        self.recDump['qEout'] = [0 for i in range(self.conf['tFn'])]
 
 
 
@@ -485,6 +496,7 @@ class particleList:
         kRot = RM @ (-qV) # Apply RM to -qV = krest
         RB = self.allBoost(np.array([-self.HB(np.array([xRec]), self.time)[0], -Vc])) # get reverse boosts [-vHydro, -vcell]
         klab = RB[0] @ (RB[1] @ np.insert(kRot, 0, np.sqrt(np.power(self.conf['M'+st],2) + (kRot @ kRot)))) # apply reverse boosts to kRot 4-vec
+        self.recDump['qEout'][self.ti] += (RB[0] @ (RB[1] @ np.insert(-kRot, 0, q)))[0] # Energy of q in lab frame  
 
         kE = np.sqrt(np.power(self.conf['M'+st],2)+(kRot @ kRot))
         #print('CHK:',(kE+q)-(CHp1[0]+CHp2[0]))
@@ -492,7 +504,7 @@ class particleList:
         #print('C4:', q - np.sqrt(kRot @ kRot))
         #print('C5:', q - (CHp1[1:]@CHp1[1:]/self.conf['Mb']))
         #print('kE:',kE)
-        print('prel:',np.linalg.norm(prel))
+        #print('prel:',np.linalg.norm(prel))
         
         return klab
 
@@ -622,6 +634,7 @@ class particleList:
         pQ_ = RotMat @ (-prel + (qg[1:]/2))
         #print('ShapeCheck: ', self.HB(np.array([self.boundCon[tar].pos]), self.time).shape)
         Bs = self.allBoost(np.array([-self.HB(np.array([self.boundCon[tar].pos]), self.time)[0], -vV])) # gets both vcell boost and hydro boost
+        self.recDump['qEin'][self.ti] += (Bs[0] @ (Bs[1] @ (np.insert(RotMat @ qg[1:], 0, qmag))))[0] # Energy of q in 
         pQL, pQ_L, = Bs[0] @ (Bs[1] @ np.insert(pQ, 0, np.sqrt((pQ @ pQ) + np.power(self.conf['Mb'],2)))), Bs[0] @ (Bs[1] @ np.insert(pQ_, 0, np.sqrt((pQ_ @ pQ_) + np.power(self.conf['Mb'],2)))) 
         #print('Dchk:', (pB[0]+qmag)-(pQL[0]+pQ_L[0]))
         return pQL, pQ_L
@@ -721,7 +734,17 @@ class particleList:
 
     def getTot4p(self):
         return ( np.sum(np.array([self.quarkCon[tag].mom4 for tag in self.quarkCon.keys()]), axis=0) + np.sum(np.array([self.boundCon[tag].mom4 for tag in self.boundCon.keys()]), axis=0) ) / ((self.conf['Nbb']*2)+(self.conf['NY']*2)) # Returns sum of all momentum 4-vecs / total num of b or b_ quarks  ~avg quark 4-mom 
-        
+    def getEb(self):
+        return np.sum(np.array([self.quarkCon[tag].mom4[0] for tag in self.quarkCon.keys()]))/(len(self.quarkCon.keys()))
+    def getEY(self):
+        return np.sum(np.array([self.boundCon[tag].mom4[0] for tag in self.boundCon.keys()]))/(len(self.boundCon.keys()))
+    def getEMix(self):
+        return (( np.sum(np.array([self.quarkCon[tag].mom4 for tag in self.quarkCon.keys()]), axis=0) + np.sum(np.array([self.boundCon[tag].mom4 for tag in self.boundCon.keys()]), axis=0) ) / ((self.conf['Nbb']*2)+(self.conf['NY']*2)))[0]
+    def getMYs(self):
+        return 0
+
+    def getMbs(self):
+        return 0
 
     def measureRGRrateGam(self, st):
         qrkRates = []

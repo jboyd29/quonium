@@ -15,15 +15,15 @@ dt 1.0
 T 0.3
 
 # Total number of simulation steps
-tFn 80
+tFn 200
 
 ### Initial occupations
 
 # Initial number of bound states
-NY 10
+NY 10000
 
 # Initial number of bb parirs
-Nbb 10000
+Nbb 1
 
 ##############################
 ##### Simulation Options #####
@@ -46,8 +46,7 @@ MatrElems 0
 # Real gluon scattering partner momentum type
 ## 0 -> q = (prel^2/Mb) + Enl
 ## 1 -> q = E - (1/4)(2Mb-Enl)^2 / E :: p1[0]+p2[0] = E
-
-qRGtype 1
+qRGtype 0
 
 
 # Energy cutoff for interpolations and sampling (as a number*Enl)
