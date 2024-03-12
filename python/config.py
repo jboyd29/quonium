@@ -50,7 +50,15 @@ class config:
     def echoParams(self):
         for key in self.data.keys():
             print(key,':',self.data[key])
+    def brikParams(self):
+        return brikDict(self.data)
 
+
+def brikDict(pdict):
+    keyWidth = 30
+    datWidth = 10
+    lines = [key.ljust(keyWidth,'.')+((str(pdict[key])[:datWidth]).rjust(datWidth,'.')) for key in pdict.keys()]
+    return '\n'.join(lines)
 
 class stepClock:
     def __init__(self, NSteps):
@@ -81,7 +89,7 @@ class stepClock:
         return f"{int(hours):02d}:{int(minutes):02d}:{int(seconds):02d}.{fractional_seconds:02d}"
 
 class conOutput:
-    def __init__(self, LabelSpacing = [['t [GeV-1]',12,None],['Nhid/Ntot',24,None],['#D',4,(200,50,50)],['#R',4,(100,100,200)],['StepTime',12,None],['ExpTime',12,None],['Eb/N',6,None],['EY/N',6,None],['E/N',6,None]]):
+    def __init__(self, LabelSpacing = [['t [GeV-1]',12,None],['Nhid/Ntot',24,None],['#D',4,(200,50,50)],['#R',4,(100,100,200)],['StepTime',12,None],['ExpTime',12,None],['Eb/N',6,None],['EY/N',6,None],['E/N',6,None],['Mb',6,None],['MY',6,None]]):
         self.LS = LabelSpacing #Spacing for console ouput
     def printHeader(self):
         print(" ".join([Sp[0][:Sp[1]].ljust(Sp[1]," ") for Sp in self.LS]))
@@ -97,3 +105,5 @@ class conOutput:
 
 def colr(text, color):
     return '\033[38;2;'+str(color[0])+';'+str(color[1])+';'+str(color[2])+'m'+text+'\033[0m'
+def intTupFlo(tup):
+    return tuple(v/255.0 for v in tup)

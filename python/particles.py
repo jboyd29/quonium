@@ -11,6 +11,7 @@ from interpolations import RGRsum2
 
 from interpolations import qFprRG
 from interpolations import prFqRG
+from interpolations import getIM
 
 from config import stepClock
 from config import colr
@@ -705,6 +706,10 @@ class particleList:
         return [np.linalg.norm(self.quarkCon[tag].mom) for tag in self.quarkCon.keys()]  
     def getMomsB(self, st):
         return [np.linalg.norm(self.boundCon[tag].mom) for tag in self.boundCon.keys() if self.boundCon[tag].state==st]
+    def getMoms2(self):
+        return [np.linalg.norm(self.quarkCon[tag].mom4[1:]) for tag in self.quarkCon.keys()]  
+    def getMomsB2(self, st):
+        return [np.linalg.norm(self.boundCon[tag].mom4[1:]) for tag in self.boundCon.keys() if self.boundCon[tag].state==st]
     def getMomDist(self):
         data = [np.norm(qrk.mom) for qrk in self.quarks]
         pBins = np.linspace(0,self.conf['pCut'],40)
@@ -734,17 +739,18 @@ class particleList:
 
     def getTot4p(self):
         return ( np.sum(np.array([self.quarkCon[tag].mom4 for tag in self.quarkCon.keys()]), axis=0) + np.sum(np.array([self.boundCon[tag].mom4 for tag in self.boundCon.keys()]), axis=0) ) / ((self.conf['Nbb']*2)+(self.conf['NY']*2)) # Returns sum of all momentum 4-vecs / total num of b or b_ quarks  ~avg quark 4-mom 
-    def getEb(self):
+    def getEb(self): # returns sum(p[0] for each b and bbar)/Nb(t)
         return np.sum(np.array([self.quarkCon[tag].mom4[0] for tag in self.quarkCon.keys()]))/(len(self.quarkCon.keys()))
-    def getEY(self):
+    def getEY(self): # returns sum(p[0] for each bound)/NY(t) 
         return np.sum(np.array([self.boundCon[tag].mom4[0] for tag in self.boundCon.keys()]))/(len(self.boundCon.keys()))
-    def getEMix(self):
+    def getEMix(self): # = getTot4p()[0]
         return (( np.sum(np.array([self.quarkCon[tag].mom4 for tag in self.quarkCon.keys()]), axis=0) + np.sum(np.array([self.boundCon[tag].mom4 for tag in self.boundCon.keys()]), axis=0) ) / ((self.conf['Nbb']*2)+(self.conf['NY']*2)))[0]
-    def getMYs(self):
-        return 0
 
-    def getMbs(self):
-        return 0
+    def getMYs(self): # returns avg invariant mass of bounds (debug)
+        return np.sum(np.array([getIM(self.boundCon[tag].mom4) for tag in self.boundCon.keys()]))/len(self.boundCon.keys())
+
+    def getMbs(self): # returns avg invariant mass of b and bbars (debug)
+        return np.sum(np.array([getIM(self.quarkCon[tag].mom4) for tag in self.quarkCon.keys()]))/len(self.quarkCon.keys()) 
 
     def measureRGRrateGam(self, st):
         qrkRates = []

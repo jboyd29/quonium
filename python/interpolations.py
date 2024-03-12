@@ -58,14 +58,14 @@ class probBlock:
 
 # General functions
 
-def qFprRG(conf, prel, st):
+def qFprRG(conf, prel, st): #gluon momentum as a function of pr in RG process
     if 0 == conf['qRGtype']:
         return (np.power(prel, 2)/conf['Mb']) + conf['E'+st]
     elif 1 == conf['qRGtype']:
         En = np.sqrt(np.power(conf['Mb'],2) + np.power(prel,2))
         return En - (np.power(conf['M'+st],2)/(4*En))
 
-def prFqRG(conf, q, st):
+def prFqRG(conf, q, st): #relative momentum as a function of gluon q in RG process
     if 0 == conf['qRGtype']:
         return np.sqrt(conf['Mb']*(q-conf['E'+st]))
     elif 1 == conf['qRGtype']:
@@ -317,6 +317,9 @@ class sampMan:
         return self.dists[channel]
 
 
+### Debug functions
 
+def getIM(p4):
+    return np.sqrt(np.power(p4[0],2) - (p4[1:] @ p4[1:]))
 
 
