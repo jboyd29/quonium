@@ -71,8 +71,15 @@ def prFqRG(conf, q, st): #relative momentum as a function of gluon q in RG proce
     elif 1 == conf['qRGtype']:
         return (1/4)*np.sqrt(np.power(q + np.sqrt(np.power(conf['M'+st],2) + np.power(q,2)),2) - np.power(conf['Mb'],2))
 
+def RPsphere():
+    theta = np.random.uniform(0, np.pi * 2)  # Azimuthal angle
+    phi = np.random.uniform(0, np.pi)        # Polar angle
 
+    x = np.sin(phi) * np.cos(theta)
+    y = np.sin(phi) * np.sin(theta)
+    z = np.cos(phi)
 
+    return np.array([x, y, z]) 
 
 
 
@@ -113,7 +120,7 @@ def RGAint2(q, gam, conf, st):
     return (2*conf['alphaS']*conf['M'+'b']*conf['T']/(9*(np.pi**2)*vc*np.power(gam,2))) * np.power(q,2)*pr*np.log((1-np.exp(-gam*(1+vc)*q/conf['T']))/(1-np.exp(-gam*(1-vc)*q/conf['T']))) * OvLp(conf, q, st) 
 
 def getRGArate2(conf, st):
-    ps = np.linspace(0.001,conf['prCut'],conf['NPts'])  #small offset, gam=0 -> rate->inf
+    ps = np.linspace(0.0001,conf['prCut'],conf['NPts'])  #small offset, gam=0 -> rate->inf
     vs = ps/np.sqrt(np.power(ps,2) + np.power(conf['M'+st],2)) 
     gamms = 1/np.sqrt(1-np.power(vs,2)) 
     Rres = []

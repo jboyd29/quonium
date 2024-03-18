@@ -12,6 +12,7 @@ from interpolations import RGRsum2
 from interpolations import qFprRG
 from interpolations import prFqRG
 from interpolations import getIM
+from interpolations import RPsphere
 
 from config import stepClock
 from config import colr
@@ -50,18 +51,21 @@ class quark:
         elif 1 == conf['pSampleType']: #Uniform sampling from pi=0 -> pi=conf["UniPMax"]
             self.mom = np.random.random(3)*conf['UniPMax']
         elif 2 == conf['pSampleType']:
-            self.mom = np.array([0,0,conf['UniPMax']])
+            self.mom = np.array([0.0,0.0,conf['UniPMax']])
         elif 3 == conf['pSampleType']:
             momD = np.random.randn(3)
-            self.mom = np.random.normal(loc=conf['UniPMax'], scale=conf['pSampSig'])*momD/np.linalg.norm(momD)  
+            self.mom = np.random.normal(loc=conf['UniPMax'], scale=conf['pSampSig'])*momD/np.linalg.norm(momD)
+        elif 4 == conf['pSampleType']:
+            self.mom = conf['UniPMax']*RPsphere()
         # Space partition
         self.XPart = np.floor(self.pos*conf['NXPart']/conf['L']).astype(int)
         self.mom4 = np.insert(self.mom,0,np.sqrt((self.mom @ self.mom)+(self.conf['Mb']**2)),axis=0)
     def Xstep(self):
-        self.pos = (self.pos + (self.mom/np.sqrt((self.conf['Mb']**2)+np.dot(self.mom,self.mom)))*self.conf['dt'])%self.conf['L']
+        self.pos = (self.pos + (self.mom4[1:]/np.sqrt((self.conf['Mb']**2)+np.dot(self.mom4[1:],self.mom4[1:])))*self.conf['dt'])%self.conf['L']
     def Pstep(self):
         #self.mom = self.mom*(1-0.001) #Drag
-        self.mom4 = np.insert(self.mom,0,np.sqrt((self.mom @ self.mom) + (self.conf['Mb']**2)),axis=0) #Update mom4  
+        #self.mom4 = np.insert(self.mom,0,np.sqrt((self.mom @ self.mom) + (self.conf['Mb']**2)),axis=0) #Update mom4
+        return None
     def exchangeStep(self, partners): # partners = [partner_Xs, partner_Ps]
         partner_Xs = partners[0]
         partner_Ps = partners[1]        
@@ -73,7 +77,7 @@ class quark:
         return None
     def posT(self):
         newXP = np.floor(self.pos*self.conf['NXPart']/self.conf['L']).astype(int) 
-        if newXP.all() == self.XPart.all():
+        if np.all(newXP == self.XPart):
             return False, None, None
         else:
             oldXP = self.XPart
@@ -82,6 +86,8 @@ class quark:
     def getPosT(self):
         self.XPart = np.floor(self.pos*self.conf['NXPart']/self.conf['L']).astype(int)
         return self.XPart
+    def getposT2(self):
+        return np.floor(self.pos*self.conf['NXPart']/self.conf['L']).astype(int) 
 
  
         
@@ -106,11 +112,13 @@ class bound:
             elif 1 == conf['pSampleType']: #Uniform sampling from pi=0 -> pi=conf["UniPMax"]
                 self.mom = np.random.random(3)*conf['UniPMax']
             elif 2 == conf['pSampleType']:
-                self.mom = np.array([0,0,conf['UniPMax']])
+                self.mom = np.array([0.0,0.0,conf['UniPMax']])
             elif 3 == conf['pSampleType']:
                 momD = np.random.randn(3)
                 self.mom = np.random.normal(loc=conf['UniPMax'], scale=conf['pSampSig'])*momD/np.linalg.norm(momD)
-            self.mom4 = np.insert(self.mom,0,np.sqrt((self.mom @ self.mom)+(self.conf['M'+self.state]**2)),axis=0)
+            elif 4 == conf['pSampleType']:
+                self.mom = self.conf['UniPMax']*RPsphere()
+            self.mom4 = np.insert(self.mom,0,np.sqrt((self.mom @ self.mom)+(np.power(conf['M'+state],2))))
             # Initialize constituent quarks
             self.quarks = [quark(conf),quark(conf,anti=1)]
             self.name = self.quarks[0].name + self.quarks[1].name
@@ -119,12 +127,13 @@ class bound:
             self.name = self.quarks[0].name+self.quarks[1].name
             self.pos = (quarks[0].pos+quarks[1].pos)/2 #Position set to center of mass
             self.mom = p #Momentum sent down by event sampler
-            self.mom4 = np.insert(self.mom,0,np.sqrt((p @ p) + (self.conf['M'+self.state]**2)),axis=0) 
+            self.mom4 = np.insert(self.mom,0,np.sqrt((p @ p) + (self.conf['M'+self.state]**2)),axis=0)
     def Xstep(self):
-        self.pos = (self.pos + (self.mom/np.sqrt((self.conf['M'+self.state]**2)+np.dot(self.mom,self.mom)))*self.conf['dt'])%self.conf['L']
+        self.pos = (self.pos + (self.mom4[1:]/np.sqrt((self.conf['M'+self.state]**2)+np.dot(self.mom4[1:],self.mom4[1:])))*self.conf['dt'])%self.conf['L']
     def Pstep(self):
         #self.mom = self.mom*(1-0.001) #tiny drag
-        self.mom4 = np.insert(self.mom,0,np.sqrt((self.mom @ self.mom)+(self.conf['M'+self.state]**2)),axis=0)
+        #self.mom4 = np.insert(self.mom,0,np.sqrt((self.mom @ self.mom)+(self.conf['M'+self.state]**2)),axis=0)
+        return None
     def exchangeStep(self): #CURRENTLY UNUSED
         # Here it would take the dissocation rate but for now ot will be random
         if np.random.uniform() < 0.005:
@@ -142,8 +151,8 @@ class bound:
         #Set constituent quark positions to the position of dissociated bound
         for qrk in self.quarks:
             qrk.pos = self.pos 
-        self.quarks[0].mom = pQ
-        self.quarks[1].mom = pQ_
+        self.quarks[0].mom4 = pQ
+        self.quarks[1].mom4 = pQ_
         return self.quarks
 
 
@@ -575,7 +584,7 @@ class particleList:
                 #print('D:',result)
                 if result[0] == 'RGA':
                     pQ, pQ_ = self.doRGAdiss(result[1])
-                    self.dissociateBoundTag2(result[1], pQ[1:], pQ_[1:])
+                    self.dissociateBoundTag2(result[1], pQ, pQ_)
                     continue
                 elif result[0] == 'X':
                     #Do x channel
@@ -638,6 +647,7 @@ class particleList:
         self.recDump['qEin'][self.ti] += (Bs[0] @ (Bs[1] @ (np.insert(RotMat @ qg[1:], 0, qmag))))[0] # Energy of q in 
         pQL, pQ_L, = Bs[0] @ (Bs[1] @ np.insert(pQ, 0, np.sqrt((pQ @ pQ) + np.power(self.conf['Mb'],2)))), Bs[0] @ (Bs[1] @ np.insert(pQ_, 0, np.sqrt((pQ_ @ pQ_) + np.power(self.conf['Mb'],2)))) 
         #print('Dchk:', (pB[0]+qmag)-(pQL[0]+pQ_L[0]))
+        #print('|pQ|', np.linalg.norm(pQ_L[1:]))
         return pQL, pQ_L
         # returns rotated and boosted pQ, pQ_
 
@@ -816,8 +826,8 @@ class particleList:
             return np.array(qrkRates)
 
 
-    def measureRGRgamprelDist(self, n): # n is a target number of points (there are too many to plot them all)
-        qrkVarPairs = []
+    def getNfrens(self): # n is a target number of points (there are too many to plot them all)
+        qrkPN = 0
         for i in range(self.conf['NXPart']):
             for j in range(self.conf['NXPart']):
                 for k in range(self.conf['NXPart']):
@@ -830,46 +840,80 @@ class particleList:
                         # For each tag in XPart[i][j][k] get all valid pairs of quark-antiquark momentums and separations
                         xpPairs = {tagIn+tagPar:[self.quarkCon[tagIn].mom4, self.quarkCon[tagPar].mom4, self.quarkCon[tagIn].pos, self.quarkCon[tagPar].pos] for tagPar in parTags}
                         # Then we need to boost all of these momentum pairs into p1 + p2
+                        
+                        qrkPN += len(xpPairs)
+        return qrkPN          
+
+    def getAvgpr(self): # n is a target number of points (there are too many to plot them all)
+        qrkPr = 0
+        for i in range(self.conf['NXPart']):
+            for j in range(self.conf['NXPart']):
+                for k in range(self.conf['NXPart']):
+                    for tagIn, ant in self.XParts[i][j][k].items(): # accessing 1 quark at a time at this level
+                        if ant == 1:
+                            continue
+                        # Gets all  qrk.anti==0 qrks in partition ijk
+                        #Iterates over each box in neighborhood and collects all antiquark tags
+                        parTags = [tag for t in (i-1,i,i+1) for u in (j-1,j,j+1) for v in (k-1,k,k+1) for tag, ant in self.XParts[t % self.conf['NXPart']][u % self.conf['NXPart']][v % self.conf['NXPart']].items() if ant==1]
+                        # For each tag in XPart[i][j][k] get all valid pairs of quark-antiquark momentums and separations
+                        xpPairs = {tagIn+tagPar:[self.quarkCon[tagIn].mom4, self.quarkCon[tagPar].mom4, self.quarkCon[tagIn].pos, self.quarkCon[tagPar].pos] for tagPar in parTags}
+                        # Then we need to boost all of these momentum pairs into p1 + p2
+                        
 
                         pairtags = [pairtag for pairtag, xpP in xpPairs.items()]
-                        
                         if len(pairtags) == 0:
                             continue
                         Xs = np.array([[xpP[2], xpP[3]] for pairtag, xpP in xpPairs.items()]) 
                         Ps = np.array([[xpP[0], xpP[1]] for pairtag, xpP in xpPairs.items()]) # [p1,p2]
-                        
+        
                         # Boost to hydro cell frame
                         RecPosns = (Xs[:,0]+Xs[:,1])/2 ### TELEPORTATION ISSUE HERE 
                         HBoosted = [ np.einsum('ijk,ik->ij',self.allBoost(self.HB(RecPosns, self.time)),Ps[:,0]), np.einsum('ijk,ik->ij',self.allBoost(self.HB(RecPosns, self.time)),Ps[:,1]) ]  # [(boosted) p1, p2] 4vec p1 and p2
-                        #HBoosted = [Ps[:,0],Ps[:,1]]
-
-                        # Boost to center of mass frame
-                        Vcs = self.getVcell(HBoosted[0][:,1:]+HBoosted[1][:,1:])
+                        Vcs = self.getVcell2(HBoosted[0]+HBoosted[1])
                         CMBoosted = [np.einsum('ijk,ik->ij',self.allBoost(Vcs),HBoosted[0]), np.einsum('ijk,ik->ij',self.allBoost(Vcs),HBoosted[1])]
-                        pRs = CMBoosted[0][:,1:]-CMBoosted[1][:,1:]
-                        #print('pRsm:',np.min(np.einsum('ij,ij->i', pRs, pRs)))
-                        #print('prs:', pRs)
-                        #print('Xs:',Xs[:,0].shape)
-                        #print('Xr',self.pDist(Xs[:][0],Xs[:][1])  )
-                        inpVars = np.array([self.pDist(Xs[:,0],Xs[:,1]), np.einsum('ij,ij->i', pRs, pRs)])
-                        #print('inpVars.shape:',inpVars.shape)
+                        pRs = (1/2)*(CMBoosted[0][:,1:]-CMBoosted[1][:,1:])
 
-                        #inpVars = np.array([[np.linalg.norm(xpP[0][1:]-xpP[1][1:]),self.pDist(xpP[2], xpP[3])] for pairtag, xpP in xpPairs.items()])
-                        #exit()
-                        #print('inpVars',inpVars)
-                        if np.size(inpVars) == 0:
-                            #self.XPresCon[i][j][k] = []
+
+                        qrkPr += np.sum(np.linalg.norm(pRs,axis=1))
+        return qrkPr/self.getNfrens()
+
+    def getAvgX(self): # n is a target number of points (there are too many to plot them all)
+        qrkX = 0
+        for i in range(self.conf['NXPart']):
+            for j in range(self.conf['NXPart']):
+                for k in range(self.conf['NXPart']):
+                    for tagIn, ant in self.XParts[i][j][k].items(): # accessing 1 quark at a time at this level
+                        if ant == 1:
                             continue
+                        # Gets all  qrk.anti==0 qrks in partition ijk
+                        #Iterates over each box in neighborhood and collects all antiquark tags
+                        parTags = [tag for t in (i-1,i,i+1) for u in (j-1,j,j+1) for v in (k-1,k,k+1) for tag, ant in self.XParts[t % self.conf['NXPart']][u % self.conf['NXPart']][v % self.conf['NXPart']].items() if ant==1]
+                        # For each tag in XPart[i][j][k] get all valid pairs of quark-antiquark momentums and separations
+                        xpPairs = {tagIn+tagPar:[self.quarkCon[tagIn].mom4, self.quarkCon[tagPar].mom4, self.quarkCon[tagIn].pos, self.quarkCon[tagPar].pos] for tagPar in parTags}
+                        # Then we need to boost all of these momentum pairs into p1 + p2
                         
 
-                        for m in range(len(pRs)):
-                            qrkVarPairs.append([np.sqrt(1-np.power(np.linalg.norm(Vcs[m]),2)), np.linalg.norm(pRs[m])])
-                            if len(qrkVarPairs) == n:
-                                return np.arra(qrkVarPairs)
+                        pairtags = [pairtag for pairtag, xpP in xpPairs.items()]
+                        if len(pairtags) == 0:
+                            continue
+                        Xs = np.array([[xpP[2], xpP[3]] for pairtag, xpP in xpPairs.items()]) 
+                        Ps = np.array([[xpP[0], xpP[1]] for pairtag, xpP in xpPairs.items()]) # [p1,p2]
+        
+                        # Boost to hydro cell frame
+                        RecPosns = (Xs[:,0]+Xs[:,1])/2 ### TELEPORTATION ISSUE HERE 
+                        HBoosted = [ np.einsum('ijk,ik->ij',self.allBoost(self.HB(RecPosns, self.time)),Ps[:,0]), np.einsum('ijk,ik->ij',self.allBoost(self.HB(RecPosns, self.time)),Ps[:,1]) ]  # [(boosted) p1, p2] 4vec p1 and p2
+                        Vcs = self.getVcell2(HBoosted[0]+HBoosted[1])
+                        CMBoosted = [np.einsum('ijk,ik->ij',self.allBoost(Vcs),HBoosted[0]), np.einsum('ijk,ik->ij',self.allBoost(Vcs),HBoosted[1])]
+                        pRs = (1/2)*(CMBoosted[0][:,1:]-CMBoosted[1][:,1:])
+                        inpVars = np.array([self.pDist(Xs[:,0],Xs[:,1]), np.sqrt(np.einsum('ij,ij->i', pRs, pRs))]) 
 
-                     
-            return np.array(qrkVarPairs)          
-    
+                        qrkX += np.sum(inpVars[0])
+        return qrkX/self.getNfrens()
+
+    def checkposT(self):
+        locs = [[tag,qrk.getposT2()] for tag, qrk in self.quarkCon.items()]
+        return [l[0] in self.XParts[l[1][0]][l[1][1]][l[1][2]].keys() for l in locs] 
+
     def getRecomEventsMP(self,i,j,k):
         # Gets all  qrk.anti==0 qrks in partition ijk
         inTags = [tag for tag, ant in self.XParts[i][j][k].items() if ant==0]
@@ -882,7 +926,6 @@ class particleList:
          
         #print('XPpairs: ', xpPairs)
         pairtags = [pairtag for pairtag, xpP in xpPairs.items()]
-        
         if len(pairtags) == 0:
             return []
         Xs = np.array([[xpP[2], xpP[3]] for pairtag, xpP in xpPairs.items()]) 
@@ -929,7 +972,7 @@ class particleList:
         # floor(rateFunc(xr,pr)*dt - R) + 1  with (random number)R in (0,1) <-- this should be 1 for a recombination and 0 otherwise
         # RGR channel
         #                     V--This 2 is here for symmetry to account for only quark_i -> antiquark_j (need to roll also aq_j -> q_i)
-        RGRres = {st:np.floor(2*RGRsum2(inpVars[0],inpVars[1],np.linalg.norm(Vcs, axis=1),self.conf,st)*self.conf['dt']-np.random.rand(len(pairtags))).astype(int)+1 for st in self.conf['StateList']}
+        RGRres = {st:np.floor(RGRsum2(inpVars[0],inpVars[1],np.linalg.norm(Vcs, axis=1),self.conf,st)*self.conf['dt']-np.random.rand(len(pairtags))).astype(int)+1 for st in self.conf['StateList']}
         
 
         RateRes = {'RGR':RGRres}

@@ -31,6 +31,8 @@ conf = config()
 conf['StateList'] = ['1S']
 conf.echoParams()
 
+conf['M1S'] = (2*conf['Mb'])-conf['E1S']
+
 stColMap = {'b':(0.923, 0.386, 0.209),'1S':(0.368,0.507,0.710),'2S':(0.881,0.611,0.142)}
 
 #box = particleList(conf)
@@ -55,6 +57,8 @@ box = particleList(conf, Loc_rates, Loc_dists)
 conOut = conOutput()
 conOut.printHeader()
 
+
+box.recLine()
 for i in range(conf['tFn']):
     box.step2()
     box.recLine()
@@ -64,7 +68,8 @@ for i in range(conf['tFn']):
     Mb = box.getMbs()
     MY = box.getMYs()
     conOut.printLine([box.rec[-1][0], box.rec[-1][1], box.getNDEvs(), box.getNREvs(), box.cl.getStepTime(), box.cl.getExpectTime(), Eb, EY, EMix, Mb, MY])
-    
+    #print('Avg X:',box.getAvgX())
+
 X = np.array([line[0] for line in box.rec])
 Y = [line[1] for line in box.rec]
 

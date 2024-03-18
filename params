@@ -6,24 +6,24 @@
 #################################
 
 # Box side length [GeV-1]
-L 50
+L 1000
 
 # Simulation time step
-dt 4.0
+dt 1.0
 
 # Temperature [GeV]
-T 0.4
+T 0.3
 
 # Total number of simulation steps
-tFn 200
+tFn 120
 
 ### Initial occupations
 
 # Initial number of bound states
-NY 25600
+NY 1500
 
 # Initial number of bb parirs
-Nbb 1
+Nbb 398500
 
 ##############################
 ##### Simulation Options #####
@@ -34,8 +34,9 @@ Nbb 1
 ## 1 = UniformDist(0->UniPMax)
 ## 2 = Set - set mom to UniPMax * z^
 ## 3 = Gaussian mu = UniPMax, sig = pSampSig
+## 4 = Set w/ random direction
 pSampleType 0
-UniPMax 10
+UniPMax 3.0
 pSampSig 0.2
 
 # Matrix Elements
@@ -46,7 +47,7 @@ MatrElems 0
 # Real gluon scattering partner momentum type
 ## 0 -> q = (prel^2/Mb) + Enl
 ## 1 -> q = E - (1/4)(2Mb-Enl)^2 / E :: p1[0]+p2[0] = E
-qRGtype 1
+qRGtype 0
 
 
 # Energy cutoff for interpolations and sampling (as a number*Enl)
@@ -56,13 +57,13 @@ ECut 40
 prCut 22
 
 # Number of sampled points for interpolations and sampling
-NPts 400
+NPts 600
 
 # Export points sampled for rate interpolations
 ExportRates True
 
 # Number of space partitions in each direction (L/NXPart = space cutoff for 2 particle rate functions)
-NXPart 16
+NXPart 80
 
 # Number of threads for multithreading
 NThreads 14
