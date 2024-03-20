@@ -2,6 +2,12 @@
 #
 import time
 
+from matplotlib.backends.backend_pdf import PdfPages
+
+import os
+import shutil
+
+
 import numpy as np
 
 def parse_string(input_string):
@@ -59,6 +65,19 @@ def brikDict(pdict):
     datWidth = 10
     lines = [key.ljust(keyWidth,'.')+((str(pdict[key])[:datWidth]).rjust(datWidth,'.')) for key in pdict.keys()]
     return '\n'.join(lines)
+
+def packExport(plots, box):
+    # get filename
+    expDir = '../export'
+    allDirs = [name for name in os.listdir(expDir) if os.path.isdir(os.path.join(expDir, name))]
+    new = max([int(dN) for dN in allDirs]) + 1 
+    dname = str(new).rjust(6,'0')
+    dN = '../export/'+dname 
+    os.makedirs(dN)
+    with PdfPages(dN+'/plots_'+dname+'.pdf') as pdf: #write plots to pdf
+        for pl in plots:
+            pdf.savefig(pl)
+    shutil.copy('../params', dN+'/params_'+dname)
 
 class stepClock:
     def __init__(self, NSteps):

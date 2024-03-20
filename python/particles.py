@@ -819,11 +819,11 @@ class particleList:
                         # floor(rateFunc(xr,pr)*dt - R) + 1  with (random number)
                         # RGR channel
                          
-                        RGRres = 2*RGRsum2(inpVars[0],inpVars[1],np.linalg.norm(Vcs, axis=1),self.conf,st)
+                        RGRres = RGRsum2(inpVars[0],inpVars[1],np.linalg.norm(Vcs, axis=1),self.conf,st)
                         qrkRates.append([np.linalg.norm(self.quarkCon[tagIn].mom),np.sum(RGRres)])
                             
                      
-            return np.array(qrkRates)
+        return np.array(qrkRates)
 
 
     def getNfrens(self): # n is a target number of points (there are too many to plot them all)

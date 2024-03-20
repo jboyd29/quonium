@@ -6,6 +6,7 @@ import numpy as np
 from config import config
 from config import conOutput
 from config import intTupFlo
+from config import packExport
 from particles import quark
 from particles import bound
 from particles import particleList
@@ -22,6 +23,7 @@ import interpolations
 
 
 import matplotlib.pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
 
 import multiprocessing
 
@@ -77,7 +79,10 @@ Y = [line[1] for line in box.rec]
 # Write hidden fraction result to file
 np.savetxt('../export/HidFrac.tsv', np.array(box.rec), delimiter='\t', fmt='%.8f')
 
-plt.figure(figsize=(7,9))
+
+
+
+pl_t = plt.figure(figsize=(7,9))
 
 # Hidden fraction plot
 plt.subplot(211)
@@ -103,7 +108,7 @@ plt.title('Real gluon energy exchange')
 
 
 
-plt.figure(figsize=(7,9))
+pl_p = plt.figure(figsize=(7,9))
 
 
 plt.subplot(311)
@@ -144,6 +149,7 @@ text = fig.text(0.50, 0.02, conf.brikParams(), horizontalalignment='center', wra
 fig.tight_layout(rect=(0,.25,1,2))
 
 
+packExport([pl_t,pl_p,fig],box)
 
 plt.tight_layout()
 plt.show()
