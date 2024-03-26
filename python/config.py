@@ -66,12 +66,13 @@ def brikDict(pdict):
     lines = [key.ljust(keyWidth,'.')+((str(pdict[key])[:datWidth]).rjust(datWidth,'.')) for key in pdict.keys()]
     return '\n'.join(lines)
 
+
+def hash8():
+    return '%08x' % np.random.randint(16**8)
+
 def packExport(plots, box):
     # get filename
-    expDir = '../export'
-    allDirs = [name for name in os.listdir(expDir) if os.path.isdir(os.path.join(expDir, name))]
-    new = max([int(dN) for dN in allDirs]) + 1 
-    dname = str(new).rjust(6,'0')
+    dname = hash8()
     dN = '../export/'+dname 
     os.makedirs(dN)
     with PdfPages(dN+'/plots_'+dname+'.pdf') as pdf: #write plots to pdf
