@@ -205,6 +205,32 @@ def getRGRratePlot(conf, state):
         res, _ = quad(RGRsum2(), 0, conf['L']/conf['NXPart'], args=(conf, state))
         rVals.append(res)
 
+### Inelastic scattering with light quarks ILQ
+
+def ISQint(p1, p2, c1, c2, phi2, gam, conf, st):
+    vc = np.sqrt(1-(1/np.power(gam,2)))
+
+def getISQrate(conf, st):
+    preF = (2*np.power(conf['alphaS'],2)*conf['Mb'])/(9*np.power(np.pi,4),)
+
+    ps = np.linspace(0.0001,conf['prCut'],conf['NPts'])  #small offset, gam=0 -> rate->inf
+    vs = ps/np.sqrt(np.power(ps,2) + np.power(conf['M'+st],2)) 
+    gamms = 1/np.sqrt(1-np.power(vs,2)) 
+    Rres = []
+    lim_p1 = [0,conf['prCut']]
+    lim_p2 = [0,conf['prCut']]
+    lim_c1 = [0,1]
+    lim_c2 = [0,1]
+    lim_phi2 = [0,2*np.pi]
+    for i in range(conf['NPts']):
+        res, error = quad(ISQint, [lim_p1, lim_p2, lim_c1, lim_c2, lim_phi2], args=(gamms[i], conf, st)) 
+        Rres.append(res)
+
+
+
+
+
+
 def rEpint(px, py, pz, M, T):
     return np.exp(-np.sqrt(np.power(M,2) + np.power(px,2) + np.power(py,2) + np.power(pz,2))/T)
 

@@ -15,15 +15,15 @@ dt 1.0
 T 0.3
 
 # Total number of simulation steps
-tFn 120
+tFn 100
 
 ### Initial occupations
 
 # Initial number of bound states
-NY 1500
+NY 1
 
 # Initial number of bb parirs
-Nbb 398500
+Nbb 399999
 
 ##############################
 ##### Simulation Options #####
@@ -46,7 +46,7 @@ MatrElems 0
 
 # Real gluon scattering partner momentum type
 ## 0 -> q = (prel^2/Mb) + Enl
-## 1 -> q = E - (1/4)(2Mb-Enl)^2 / E :: p1[0]+p2[0] = E
+## 1 -> q = E - (1/4)(2Mb-Enl)^2 / E :: p1[0]+p2[0] = E  (strict energy conservation)
 qRGtype 0
 
 
@@ -83,6 +83,11 @@ doRecom 1
 # Switch to turn on/off dissociation step
 doDisso 1
 
+# RGR rate measurement option
+## 0 = None
+## 1 = Full
+## >=2 = Quick (Does rate calc on 1/nth of partitions, must be less than NXPart^3 )
+RGRrateOpt 100
 
 ##############################
 ##### Physics Parameters #####

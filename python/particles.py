@@ -348,21 +348,43 @@ class particleList:
         self.time += self.conf['dt']
 
 
+    def doXStep(self):
+        # Quarks
+        qXP = np.array([np.concatenate((qrk.pos, qrk.mom4)) for tag, qrk in self.quarkCon.items()]) # [x,y,z,p0,p1,p2,p3]
+        qt = [tag for tag, qrk in self.quarkCon.items()]
+        qX = qXP[:,0:3]
+        qE = qXP[:,3]
+        qP = qXP[:,4:]
+        qnewX = (qX + ((qP/(qE.reshape(-1,1)))*self.conf['dt'])) % self.conf['L'] # calc x + (p/E) as new pos
+        for i in range(len(qt)): # set new pos
+            self.quarkCon[qt[i]].pos = qnewX[i]
+        # Bounds
+        bXP = np.array([np.concatenate((bnd.pos, bnd.mom4)) for tag, bnd in self.boundCon.items()]) # [x,y,z,p0,p1,p2,p3]
+        bt = [tag for tag, bnd in self.boundCon.items()]
+        bX = bXP[:,0:3]
+        bE = bXP[:,3]
+        bP = bXP[:,4:]
+        bnewX = (bX + ((bP/(bE.reshape(-1,1)))*self.conf['dt'])) % self.conf['L'] # calc x + (p/E) as new pos
+        for i in range(len(bt)): # set new pos
+            self.boundCon[bt[i]].pos = bnewX[i]
+
     def step2(self):
         #electric boogaloo
         
         #Start step timer
         self.cl.start()
-
+        
+        #self.doXStep()
+        
         for tag in self.quarkCon.keys():
             self.quarkCon[tag].Xstep()
         for tag in self.boundCon.keys():
             self.boundCon[tag].Xstep()
-        # P-step
-        for tag in self.quarkCon.keys():
-            self.quarkCon[tag].Pstep()
-        for tag in self.boundCon.keys():
-            self.boundCon[tag].Pstep()
+        ## P-step
+        #for tag in self.quarkCon.keys():
+        #    self.quarkCon[tag].Pstep()
+        #for tag in self.boundCon.keys():
+        #    self.boundCon[tag].Pstep()
         
         # Update space partitions
         self.updateXPart()
@@ -763,10 +785,14 @@ class particleList:
         return np.sum(np.array([getIM(self.quarkCon[tag].mom4) for tag in self.quarkCon.keys()]))/len(self.quarkCon.keys()) 
 
     def measureRGRrateGam(self, st):
+        if 0 == self.conf['RGRrateOpt']:
+            return np.array([[]])
         qrkRates = []
         for i in range(self.conf['NXPart']):
             for j in range(self.conf['NXPart']):
                 for k in range(self.conf['NXPart']):
+                    if (i+j+k)%self.conf['RGRrateOpt'] != 0:
+                        continue
                     for tagIn, ant in self.XParts[i][j][k].items(): # accessing 1 quark at a time at this level
                         if ant == 1:
                             continue
@@ -821,7 +847,6 @@ class particleList:
                          
                         RGRres = RGRsum2(inpVars[0],inpVars[1],np.linalg.norm(Vcs, axis=1),self.conf,st)
                         qrkRates.append([np.linalg.norm(self.quarkCon[tagIn].mom),np.sum(RGRres)])
-                            
                      
         return np.array(qrkRates)
 
