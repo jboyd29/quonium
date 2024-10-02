@@ -13,6 +13,7 @@ from interpolations import qFprRG
 from interpolations import prFqRG
 from interpolations import getIM
 from interpolations import RPsphere
+from interpolations import to4mom
 
 from config import stepClock
 from config import colr
@@ -465,6 +466,7 @@ class particleList:
         self.recDump['RGArateSampDist'] = []
         self.recDump['qEin'] = [0 for i in range(self.conf['tFn'])]
         self.recDump['qEout'] = [0 for i in range(self.conf['tFn'])]
+        self.recDump['evLog'] = []
 
 
 
@@ -502,7 +504,7 @@ class particleList:
 
     def doRGRrecom(self, n1, n2, st): # RGR momentum sampling
         x = self.pDist(np.array([self.quarkCon[n1].pos]), np.array([self.quarkCon[n2].pos]))[0] # x distance
-        xRec = (self.quarkCon[n1].pos + self.quarkCon[n1].pos)/2 # recombination position !!!TELEPORTATION ISSUE
+        xRec = (self.quarkCon[n1].pos + self.quarkCon[n2].pos)/2 # recombination position !!!TELEPORTATION ISSUE
         p1, p2 = self.quarkCon[n1].mom4, self.quarkCon[n2].mom4 # quark momentums
         HBM = self.allBoost(self.HB(np.array([xRec]), self.time))[0] # get Hydro boost matrix
         Hp1, Hp2 = HBM @ p1, HBM @ p2 # do hydro boost
@@ -537,7 +539,11 @@ class particleList:
         #print('C5:', q - (CHp1[1:]@CHp1[1:]/self.conf['Mb']))
         #print('kE:',kE)
         #print('prel:',np.linalg.norm(prel))
-        
+        ### Record Quantities
+        qLab = RB[0] @ (RB[1] @ to4mom(-kRot,0)) #gluon 4mom in lab frame
+        x1 = xRec - self.quarkCon[n1].pos
+        ### [evtype, p1_0, p1_1, p1_2, p1_3, p2..., q..., k..., x1_1, x1_2, x1_3, CosThetag]
+        self.recDump['evLog'].append(['RGR', p1[0], p1[1], p1[2], p1[3], p2[0], p2[1], p2[2], p2[3], qLab[0], qLab[1], qLab[2], qLab[3], klab[0], klab[1], klab[2], klab[3], x1[0], x1[1], x1[2], CosThetag])
         return klab
 
 
