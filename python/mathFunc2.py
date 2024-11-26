@@ -2,6 +2,7 @@ import numpy as np
 import sys
 import os
 import time
+import random
 
 from scipy.integrate import quad
 from scipy.integrate import nquad
@@ -33,6 +34,10 @@ def doConfigCalc(conf):
     for st in conf['StateList']:
         conf['E'+st] = np.power(conf['alphaS'],2)*conf['Mb']/2 ######## <<<<<<< CHECK THIS!!!!!!!!
         conf['M'+st] = (2*conf['Mb']-conf['E'+st])
+    # Set inverse CDF of fB for sampling momentum
+    conf['fBinvCDF_b'] = getfBSampDist(conf, conf['Mb'])
+    for st in conf['StateList']:
+        conf['fBinvCDF_'+st] = getfBSampDist(conf, conf['M'+st]) 
     # Set channel funciton constants
     for ch in conf['ChannelList']:
         if ch == 'RGA':
@@ -115,6 +120,12 @@ def vFp(p, m): # velocity as a function of momentum
     return p/np.sqrt(np.power(p,2) + np.power(m,2))
 def pFv(v, m): # momentum as a function of velocity
     return 0
+
+def vFp4(p4):
+    return np.linalg.norm(p4[:,1:]/p4[:,0][:,np.newaxis],axis=1)
+
+def mom324(p3, m):
+    return np.insert(p3,0,np.sqrt((p3 @ p3)+np.power(m,2)),axis=0)
 
 def TrgSw(c):
     return np.sqrt(1-np.power(c,2))
@@ -259,16 +270,19 @@ def IRQdist(conf,p1,c1,p2,c2,vc):
     g = gFv(vc)
     return p1*p2*nF(p1*(1+(vc*c1))*g,conf['T'])*(1-nF(p2*(1+(vc*c2))*g,conf['T']))
 def IRQint(conf,vc,p1,c1,p2,c2,phi2,st):
-    return IRQdist(conf,p1,c1,p2,c2,vc)*IDQangle(p1,c1,p2,c2,phi2)#*OvLpPr(conf,np.sqrt(conf["Mb"]*(p1-conf["E"+st]-p2)),st)#*np.sqrt(conf["Mb"]*(p1-conf["E"+st]-p2)) 
+    return IRQdist(conf,p1,c1,p2,c2,vc)*IDQangle(p1,c1,p2,c2,phi2)#*OvLpPr(conf,np.sqrt(conf["Mb"]*(p1+conf["E"+st]-p2)),st)#*np.sqrt(conf["Mb"]*(p1-conf["E"+st]-p2)) 
 def getIRQvInt(conf, st):
     MCres = MCintFvRecom(conf, IRQint, st) #independent of state
     interp = interp1d(MCres[0], gaussian_filter(MCres[1],2), kind='linear', fill_value='extrapolate') #Interpolation 
     return interp
 def IRQvpF(vc, pr, conf, st):
     aB = conf['aB']
-    return conf['IRQ_vInt'+st](vc)*OvLpPr(conf,pr,st) 
+    return conf['IRQ_vInt'+st](vc)*OvLpPr(conf,pr,st)#*np.sqrt(pr) 
 def IRQvpFC(vp,conf, st):
     return IRQvpF(vp[0],vp[1],conf,st)
+
+def IRQsumC(x, vc, pr, conf, st):
+    return gaussX(conf,x)*IRQvpF(vc,pr,conf,st)*conf['IRQ_C']
 
 
 ### IRG
@@ -289,6 +303,9 @@ def IRGvpF(vc, pr, conf, st):
     return conf['IRG_vInt'+st](vc)*OvLpPr(conf,pr,st) 
 def IRGvpFC(vp,conf, st):
     return IRGvpF(vp[0],vp[1],conf,st)
+
+def IRGsumC(x, vc, pr, conf, st):
+    return gaussX(conf,x)*IRGvpF(vc,pr,conf,st)*conf['IRG_C']
 
 ######## OTHER #########
 
@@ -315,13 +332,16 @@ def BoostL(v): # v is a vector of velocity vectors vi
     vvT = np.einsum('ij,ik->ijk',v,v) # batched outer product of v and velocity
     res = np.zeros((len(v),4,4)) # init containers
     res[:, 0, 0] = g # 00 elem set to gamma
-    #print(v.shape)
     res[:, 0, 1:] = -g[:,np.newaxis]*v # 0j set to -g*v
     res[:, 1:, 0] = -g[:,np.newaxis]*v # i0 to -g*v 
-    #print('v:',v)
-    #print(len(v))
     res[:, 1:, 1:] = np.tile(np.eye(3), (len(v), 1, 1)) + (g[:,np.newaxis,np.newaxis]-np.ones((len(v),3,3)))*vvT/np.power(vM,2)[:,np.newaxis,np.newaxis] # i-123 j-123 set to 1 - (g-1)vvT/vM
     return res
+def Vcell(pcm4):
+    return pcm4[:,1:]/pcm4[:,0,np.newaxis]
+def pDist(L, x1, x2):
+    delta = np.abs(x1 - x2)
+    periodic_delta = np.minimum(delta, L - delta)
+    return np.linalg.norm(periodic_delta, axis=1)
 
 def sampPrelFp1(p1M, conf):
     sN = 10000
@@ -370,3 +390,15 @@ def calcRelExpec2(conf):
     print('rel-Nhid/Ntot:',NeqY*np.power(fug,2)/((NeqY*np.power(fug,2))+(Neqb*fug)) )
     return NeqY*np.power(fug,2)/((NeqY*np.power(fug,2))+(Neqb*fug))
 
+def getfBSampDist(conf, M):
+    x = np.linspace(0.001,conf['prCut']/2,1000)
+    cdf_values = cumtrapz(fB(x,conf['Mb'],conf['T']), x, initial=0)
+    invCDF = interp1d(cdf_values, x, kind='linear', bounds_error=False, fill_value=(0, 1))
+    return invCDF
+
+def chooseStateInit(conf):
+    return random.choice(conf['StateList'])
+
+def getIM(p4):
+    return np.sqrt(np.power(p4[0],2) - (p4[1:] @ p4[1:]))
+    

@@ -6,6 +6,7 @@
 #################################
 
 # Box side length [GeV-1]
+#L 2000
 L 1000
 
 # Simulation time step
@@ -23,6 +24,7 @@ tFn 100
 NY 1
 
 # Initial number of bb parirs
+#Nbb 319999
 Nbb 399999
 
 ##############################
@@ -57,13 +59,13 @@ ECut 40
 prCut 22
 
 # Number of sampled points for interpolations and sampling
-NPts 600
+NPts 200
 
 # Export points sampled for rate interpolations
 ExportRates True
 
 # Number of space partitions in each direction (L/NXPart = space cutoff for 2 particle rate functions)
-NXPart 80
+NXPart 60
 
 # Number of threads for multithreading
 NThreads 14
@@ -87,7 +89,7 @@ doDisso 1
 ## 0 = None
 ## 1 = Full
 ## >=2 = Quick (Does rate calc on 1/nth of partitions, must be less than NXPart^3 )
-RGRrateOpt 100
+RGRrateOpt 1
 
 ##############################
 ##### Physics Parameters #####
@@ -106,6 +108,7 @@ Mb 4.65
 M1S 9.091
 
 M2S 10.023
+
 
 #### Binding energies
 # Enl = (aS^2)*Mb/2

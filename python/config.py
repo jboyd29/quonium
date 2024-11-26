@@ -6,6 +6,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 
 import os
 import shutil
+import csv
 
 
 import numpy as np
@@ -79,6 +80,9 @@ def packExport(plots, box):
         for pl in plots:
             pdf.savefig(pl)
     shutil.copy('../params', dN+'/params_'+dname)
+    with open(dN+'/evLog_'+dname+'.tsv', 'w', newline='') as tsvfile:
+        writer = csv.writer(tsvfile, delimiter='\t')
+        writer.writerows(box.recDump['evLog'])
 
 class stepClock:
     def __init__(self, NSteps):
