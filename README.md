@@ -15,6 +15,7 @@ Notes on running:
 First the config gets initialized from the specified param file. All of the simulation variables, settings, and interpolations get stored here
 All of the initial calculations (do integrations, set rate interpolations) get done by doConfigCalc.
 ^^^These two steps generally always need done first
+At this point the box can be initialized and run and the numerical appriximations can be done.
 
 *Naming convention:
 	RGR-real gluon radiation(disso) 
