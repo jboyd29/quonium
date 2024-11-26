@@ -18,8 +18,8 @@ All of the initial calculations (do integrations, set rate interpolations) get d
 At this point the box can be initialized and run and the numerical appriximations can be done.
 
 *Naming convention:
-	RGR-real gluon radiation(disso) 
-	RGA-real gluon absorption(recom) 
+	RGA-real gluon absorption(disso) 
+	RGR-real gluon radiation(recom) 
 	IDQ - Inelastic scattering with light quarks(disso) : IDQ:Inelastic Dissociation w/ Quarks
 	IRQ - Inelastic scattering with light quarks(recom) : IRQ:Inelastic Recombination w/ Quarks
 	IDG - Inelastic scattering with gluons(disso) : IDG:Inelastic Dissociation w/ Gluons
