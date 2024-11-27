@@ -14,7 +14,7 @@ from mathFunc2 import RGRsumC
 from mathFunc2 import IRQsumC
 from mathFunc2 import IRGsumC
 from mathFunc2 import vFp
-from mathFunc2 import vFp4, getIM
+from mathFunc2 import vFp4, getIM, flattenL
 
 # momentumSampling
 from momentumSampling import doRGAdiss
@@ -33,6 +33,8 @@ from hydro import hydroBac
 
 import threading
 import time
+
+
 
 import multiprocessing
 
@@ -375,7 +377,158 @@ class box:
     def getNDEvs(self):
         print('ND2:',self.dissoEvents)
         return len(self.dissoEvents)
-    
+
+    def measureDrate(self):
+        DCh = list(set(self.conf['ChannelList']) & set(['RGA','IDQ','IDG'])) 
+        Dres = {ch:{st:[] for st in self.conf['StateList']} for ch in DCh}
+        for st in self.conf['StateList']:
+            tags = [tag for tag in self.boundC.keys() if self.boundC[tag].st == st]
+            moms = np.array([self.boundC[tag].mom for tag in self.boundC.keys() if self.boundC[tag].st == st ])
+            vs = vFp4(moms)
+            for ch in self.conf['ChannelList']:
+                if ch not in ('RGA','IDQ','IDG'):
+                    continue
+                rs = self.conf[ch+'_rate'+st](vs)
+                Dres[ch][st].append(rs)
+        return Dres
+
+    def measureRrate(self):
+        RCh = list(set(self.conf['ChannelList']) & set(['RGR','IRQ','IRG']))
+        Rres = {ch:{st:[] for st in self.conf['StateList']} for ch in RCh}
+        for i in range(self.conf['NXPart']):
+            for j in range(self.conf['NXPart']):
+                for k in range(self.conf['NXPart']):
+                    if (i+j+k)%self.conf['RGRrateOpt'] != 0:
+                        continue
+                    for tagIn, ant in self.XParts[i][j][k].items(): # accessing 1 quark at a time at this level
+                        if ant == 1:
+                            continue
+                        # Gets all  qrk.anti==0 qrks in partition ijk
+                        #Iterates over each box in neighborhood and collects all antiquark tags
+                        parTags = [tag for t in (i-1,i,i+1) for u in (j-1,j,j+1) for v in (k-1,k,k+1) for tag, ant in self.XParts[t % self.conf['NXPart']][u % self.conf['NXPart']][v % self.conf['NXPart']].items() if ant==1]
+                        # For each tag in XPart[i][j][k] get all valid pairs of quark-antiquark momentums and separations
+                        xpPairs = {tagIn+tagPar:[self.quarkC[tagIn].mom, self.quarkC[tagPar].mom, self.quarkC[tagIn].pos, self.quarkC[tagPar].pos] for tagPar in parTags}
+                        # Then we need to boost all of these momentum pairs into p1 + p2
+
+                        pairtags = [pairtag for pairtag, xpP in xpPairs.items()]
+                        
+                        if len(pairtags) == 0:
+                            continue
+
+                        Xs = np.array([[xpP[2], xpP[3]] for pairtag, xpP in xpPairs.items()]) 
+                        Ps = np.array([[xpP[0], xpP[1]] for pairtag, xpP in xpPairs.items()]) # [p1,p2]
+                        
+                        # Boost to hydro cell frame
+                        RecPosns = (Xs[:,0]+Xs[:,1])/2 ### TELEPORTATION ISSUE HERE 
+                        HBoosted = [ np.einsum('ijk,ik->ij',BoostL(self.HB(RecPosns, self.time)),Ps[:,0]), np.einsum('ijk,ik->ij',BoostL(self.HB(RecPosns, self.time)),Ps[:,1]) ]  # [(boosted) p1, p2] 4vec p1 and p2
+                        #HBoosted = [Ps[:,0],Ps[:,1]]
+
+                        # Boost to center of mass frame
+                        Vcs = Vcell(HBoosted[0]+HBoosted[1])
+                        #print('#########################',Vcs.shape)
+                        CMBoosted = [np.einsum('ijk,ik->ij',BoostL(Vcs),HBoosted[0]), np.einsum('ijk,ik->ij',BoostL(Vcs),HBoosted[1])]
+                        pRs = (1/2)*(CMBoosted[0][:,1:]-CMBoosted[1][:,1:])
+                        inpVars = np.array([pDist(self.conf['L'],Xs[:,0],Xs[:,1]), np.sqrt(np.einsum('ij,ij->i', pRs, pRs))])
+                        if np.size(inpVars) == 0:
+                            #self.XPresCon[i][j][k] = []
+                            continue
+
+
+                        
+                        for ch in RCh:
+                            for st in self.conf['StateList']:
+                                if ch == 'RGR':
+                                    rs = RGRsumC(inpVars[0],np.linalg.norm(Vcs, axis=1),inpVars[1],self.conf,st)
+                                elif ch == 'IRQ':
+                                    rs = IRQsumC(inpVars[0],np.linalg.norm(Vcs, axis=1),inpVars[1],self.conf,st)
+                                elif ch == 'IRG':
+                                    rs = IRGsumC(inpVars[0],np.linalg.norm(Vcs, axis=1),inpVars[1],self.conf,st)
+                                Rres[ch][st].append(np.sum(rs))
+        return Rres
+    def measureRrateMP(self,i,j,k):
+        RCh = list(set(self.conf['ChannelList']) & set(['RGR','IRQ','IRG']))
+        Rres = {ch:{st:[] for st in self.conf['StateList']} for ch in RCh}
+        #print('HEllo')
+        for tagIn, ant in self.XParts[i][j][k].items(): # accessing 1 quark at a time at this level
+            if ant == 1:
+                continue
+            # Gets all  qrk.anti==0 qrks in partition ijk
+            #Iterates over each box in neighborhood and collects all antiquark tags
+            parTags = [tag for t in (i-1,i,i+1) for u in (j-1,j,j+1) for v in (k-1,k,k+1) for tag, ant in self.XParts[t % self.conf['NXPart']][u % self.conf['NXPart']][v % self.conf['NXPart']].items() if ant==1]
+            # For each tag in XPart[i][j][k] get all valid pairs of quark-antiquark momentums and separations
+            xpPairs = {tagIn+tagPar:[self.quarkC[tagIn].mom, self.quarkC[tagPar].mom, self.quarkC[tagIn].pos, self.quarkC[tagPar].pos] for tagPar in parTags}
+            # Then we need to boost all of these momentum pairs into p1 + p2
+
+            pairtags = [pairtag for pairtag, xpP in xpPairs.items()]
+            
+            if len(pairtags) == 0:
+                for ch in RCh:
+                    for st in self.conf['StateList']:
+                        Rres[ch][st].append(0)
+                continue
+
+            Xs = np.array([[xpP[2], xpP[3]] for pairtag, xpP in xpPairs.items()]) 
+            Ps = np.array([[xpP[0], xpP[1]] for pairtag, xpP in xpPairs.items()]) # [p1,p2]
+            
+            # Boost to hydro cell frame
+            RecPosns = (Xs[:,0]+Xs[:,1])/2 ### TELEPORTATION ISSUE HERE 
+            HBoosted = [ np.einsum('ijk,ik->ij',BoostL(self.HB(RecPosns, self.time)),Ps[:,0]), np.einsum('ijk,ik->ij',BoostL(self.HB(RecPosns, self.time)),Ps[:,1]) ]  # [(boosted) p1, p2] 4vec p1 and p2
+            #HBoosted = [Ps[:,0],Ps[:,1]]
+
+            # Boost to center of mass frame
+            Vcs = Vcell(HBoosted[0]+HBoosted[1])
+            #print('#########################',Vcs.shape)
+            CMBoosted = [np.einsum('ijk,ik->ij',BoostL(Vcs),HBoosted[0]), np.einsum('ijk,ik->ij',BoostL(Vcs),HBoosted[1])]
+            pRs = (1/2)*(CMBoosted[0][:,1:]-CMBoosted[1][:,1:])
+            inpVars = np.array([pDist(self.conf['L'],Xs[:,0],Xs[:,1]), np.sqrt(np.einsum('ij,ij->i', pRs, pRs))])
+            if np.size(inpVars) == 0:
+                #self.XPresCon[i][j][k] = []
+                continue
+
+
+           
+            for ch in RCh:
+                for st in self.conf['StateList']:
+                    if ch == 'RGR':
+                        rs = RGRsumC(inpVars[0],np.linalg.norm(Vcs, axis=1),inpVars[1],self.conf,st)
+                    elif ch == 'IRQ':
+                        rs = IRQsumC(inpVars[0],np.linalg.norm(Vcs, axis=1),inpVars[1],self.conf,st)
+                    elif ch == 'IRG':
+                        rs = IRGsumC(inpVars[0],np.linalg.norm(Vcs, axis=1),inpVars[1],self.conf,st)
+                    Rres[ch][st].append(np.sum(rs))
+        return Rres
+    def measureRrateMPH(self):
+        targetList = [[] for i in range(self.conf['NThreads'])]
+        for i in range(self.conf['NXPart']):
+            for j in range(self.conf['NXPart']):
+                for k in range(self.conf['NXPart']):
+                    targetList[(i+(j*self.conf['NXPart'])+(k*(self.conf['NXPart']**2)))%self.conf['NThreads']].append([i,j,k])
+            
+        rateRaw = []
+        result_queue = multiprocessing.Queue()
+        processList = []
+        for i in range(self.conf['NThreads']):
+            process = multiprocessing.Process(target=regenRate_worker, args=(result_queue, self, targetList[i], np.random.randint(2**32), i))
+            processList.append(process)
+            process.start()
+
+        while any(process.is_alive() for process in processList) or not result_queue.empty():
+            #if len(processList)!=0:
+                #print('remaining:',processList)
+            while not result_queue.empty():
+                rateRaw.append(result_queue.get())
+        #print('RR: ',rateRaw)
+        for process in processList:
+            process.join()
+
+        RCh = list(set(self.conf['ChannelList']) & set(['RGR','IRQ','IRG']))
+        #res = {ch:{st:[] for st in self.conf['StateList']} for ch in RCh}
+        #stitch togetther partial results
+        res = {ch:{st:flattenL([it[ch][st] for it in rateRaw]) for st in self.conf['StateList']} for ch in RCh}
+        # Get events and manage conflicts
+        return res
+
+
 def regenUpdate_worker(queue, box, targetList, Rs, thN):
     try:
         np.random.seed(Rs)
@@ -391,6 +544,23 @@ def regenUpdate_worker(queue, box, targetList, Rs, thN):
         #multiprocessing.current_process().terminate()
     except Exception as e:
         print(colr('Error',(200,0,0)),'in',colr('Thread'+str(thN),(150,150,50)),':',f"{e}")
+
+def regenRate_worker(queue, box, targetList, Rs, thN):
+    try:
+        np.random.seed(Rs)
+        results = []
+        for tg in targetList: # for each target cell in this process's targetList get the events in that cell
+            #print('Thread:',thN,' target:',tg)
+            ret = box.measureRrateMP(tg[0],tg[1],tg[2])
+
+            #print('ret: ',ret)
+            queue.put(ret)
+        #print(thN,' All fetched')
+        return
+        #multiprocessing.current_process().terminate()
+    except Exception as e:
+        print(colr('Error',(200,0,0)),'in',colr('Thread'+str(thN),(150,150,50)),':',f"{e}")
+
 
 # Generates a random 8 character hex string
 def hex8():

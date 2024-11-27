@@ -21,7 +21,7 @@ from scipy.special import kn
 from scipy.integrate import cumtrapz
 from scipy.ndimage import gaussian_filter
 
-
+from itertools import chain
 
 
 ### CONFIGURATION SETTER ###
@@ -276,7 +276,7 @@ def getIRQvInt(conf, st):
     interp = interp1d(MCres[0], gaussian_filter(MCres[1],2), kind='linear', fill_value='extrapolate') #Interpolation 
     return interp
 def IRQvpF(vc, pr, conf, st):
-    aB = conf['aB']
+    #aB = conf['aB']
     return conf['IRQ_vInt'+st](vc)*OvLpPr(conf,pr,st)#*np.sqrt(pr) 
 def IRQvpFC(vp,conf, st):
     return IRQvpF(vp[0],vp[1],conf,st)
@@ -401,4 +401,5 @@ def chooseStateInit(conf):
 
 def getIM(p4):
     return np.sqrt(np.power(p4[0],2) - (p4[1:] @ p4[1:]))
-    
+def flattenL(Lst):
+    return list(chain(*Lst)) 
